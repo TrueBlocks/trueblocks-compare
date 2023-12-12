@@ -10,6 +10,8 @@ A repository used to compare EtherScan against TrueBlocks.
     - [Downloading the data](#downloading-the-data)
     - [Comparing the data](#comparing-the-data)
   - [The Results](#the-results)
+    - [Bug in EtherScan related to Uncles](#bug-in-etherscan-related-to-uncles)
+    - [Why does TrueBlocks find more appearances?](#why-does-trueblocks-find-more-appearances)
 
 ## Folder Structure
 
@@ -107,8 +109,66 @@ And we're done.
 
 ## The Results
 
-In all cases, TrueBlocks finds more appearances than Etherscan with the single exception that Etherscan has a bug when reporting uncles prior to block 100,000. If we correct for this bug (see below), TrueBlocks finds more appearances in every cases.
+Here's the baseline numbers:
 
-Here's some numbers:
+![Results](./assets/results1.png)
 
-![Results](./assets/results.png)
+We checked 547 randomly selected addresses. Of those, 98 had more than 10,000 appearances and were ignored. We ignored these becuse Etherscan does not return more than 10,000 records for any given address.
+
+Strike one.
+
+Of the remaining 449 addresses, 435 contained records that were found by both EtherScan and TrueBlocks. This is to be expected. We would hope that in most cases, both systems would return similar lists of appearances (as we'll see this is not the case).
+
+For six address (listed below), Etherscan seemingly found more addresses than TrueBlocks. 333 records of this type were found, but this is not the whole story. See the note below on uncles. Etherscan has a bug related to uncles that causes it to return the incorrect block for when the uncle reward was credited. TrueBlocks gets it right.
+
+Strike two.
+
+For 376 of the 449 addresses we checked (that's 83%) TrueBlocks found (sometimes significantly more) appearances.
+
+Strike three.
+
+### Bug in EtherScan related to Uncles
+
+In the 449 addresses we searched, we found six where EtherScan found more appearances than TrueBlocks. In all six cases, the difference was due to a bug in EtherScan related to uncles. The bug is that EtherScan returns the block number when the uncle was found. TrueBlocks returns the block number in which the uncle reward was credited to the miner's account. We know this because we ran the following analysis on all 333 occurrences of this issue.
+
+First, we extracted just the block number from the `etherscan` files. We then calculated 1 block prior to that block number (P) and seven blocks after that block number (A). We then ran:
+
+```[shell]
+chifra state --parts balance P-A <address> --changes
+```
+
+For example, for address `0x3f98e477a361f777da14611a7e419a75fd238b6b`, Etherscan reports the following appearances:
+
+```[shell]
+485,uncle
+940,uncle
+1114,uncle
+...
+```
+
+Running:
+
+```[shell]
+chifra state --parts balance 484-492 0x48040276e9c17ddbe5c8d2976245dcd0235efa43
+```
+
+results in:
+
+```[shell]
+blockNumber,address,balance
+484,0x48040276e9c17ddbe5c8d2976245dcd0235efa43,0
+485,0x48040276e9c17ddbe5c8d2976245dcd0235efa43,0
+486,0x48040276e9c17ddbe5c8d2976245dcd0235efa43,0
+487,0x48040276e9c17ddbe5c8d2976245dcd0235efa43,3750000000000000000
+488,0x48040276e9c17ddbe5c8d2976245dcd0235efa43,3750000000000000000
+489,0x48040276e9c17ddbe5c8d2976245dcd0235efa43,3750000000000000000
+490,0x48040276e9c17ddbe5c8d2976245dcd0235efa43,3750000000000000000
+491,0x48040276e9c17ddbe5c8d2976245dcd0235efa43,3750000000000000000
+```
+
+In other words, EtherScan reports the uncle block at block 485. However, the uncle reward was not credited to the miner's account until block 487. TrueBlocks reports the uncle at block 487.
+
+In all 333 cases, the block EtherScan reports as the uncle block is technically correct. That block is where the uncle was found. However, the uncle reward was not credited to the miner's account until a few blocks later. In every case, that block was the block that TrueBlocks reported. EtherScan got it wrong. Unless you want to lean on a technicality. I would argue that a change in balance of an account is the correct place to note in an address's history. I'll leave it up to EtherScan to decide if they want to fix this bug.
+
+### Why does TrueBlocks find more appearances?
+
