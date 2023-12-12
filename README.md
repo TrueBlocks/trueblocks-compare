@@ -1,6 +1,15 @@
-# trueblocks-compare
+# TrueBlocks Comparison with EtherScan
 
 A repository used to compare EtherScan against TrueBlocks.
+
+- [TrueBlocks Comparison with EtherScan](#trueblocks-comparison-with-etherscan)
+  - [Folder Structure](#folder-structure)
+  - [Code Structure](#code-structure)
+  - [The Addresses.txt File](#the-addressestxt-file)
+  - [The Code](#the-code)
+    - [Downloading the data](#downloading-the-data)
+    - [Comparing the data](#comparing-the-data)
+  - [The Results](#the-results)
 
 ## Folder Structure
 
@@ -31,9 +40,9 @@ Also at the root of the repo is a file called `addresses.txt.`. This is the list
 
 ## The Code
 
-### Downloading the data
+The code to run the comparison is located in `main.go`. Read this very simple file. It calls into two processes located in `download.go` (optional) and `compare.go.`
 
-The code to run the comparison is located in `main.go`. Read this very simple file. It's clear how it works.
+### Downloading the data
 
 The `download.go` file contains the code used to download the data from each source. It reads the `addresses.txt` file and processes each line using `chifra` and `os.System`. The code first creates a list of all appearances using `chifra list`. It stores this list into the `store/list` folder. The data has the form:
 
