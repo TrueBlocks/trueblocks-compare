@@ -10,7 +10,7 @@
             "env": {},
             "cwd": "${workspaceFolder}/",
             "args": [
-                "--compare"
+                "--es_only"
             ]
         }
     ]

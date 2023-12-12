@@ -169,6 +169,8 @@ blockNumber,address,balance
 
 In other words, EtherScan reports the uncle block at block 485. However, the uncle reward was not credited to the miner's account until block 487. TrueBlocks reports the uncle at block 487.
 
+The results of this run are in the data folder in the file called `es_only.txt`.
+
 In all 333 cases, the block EtherScan reports as the uncle block is technically correct. That block is where the uncle was found. However, the uncle reward was not credited to the miner's account until a few blocks later. In every case, that block was the block that TrueBlocks reported. EtherScan got it wrong. Unless you want to lean on a technicality. I would argue that a change in balance of an account is the correct place to note in an address's history. I'll leave it up to EtherScan to decide if they want to fix this bug.
 
 Total number of place where EtherScan legitmately found more appearances than TrueBlocks: 0.

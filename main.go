@@ -11,31 +11,26 @@ import (
 )
 
 func main() {
-	cleanOpt, combineOpt, removeOpt, downloadOpt := false, false, false, false
+	downloadOpt := false
 	for _, arg := range os.Args[1:] {
-		if arg == "--remove" {
-			removeOpt = true
-		} else if arg == "--download" {
+		if arg == "--download" {
 			downloadOpt = true
+		} else if arg == "--remove" {
+			remove()
+			return
 		} else if arg == "--combine" {
-			combineOpt = true
+			combine()
+			return
 		} else if arg == "--clean" {
-			cleanOpt = true
+			cleanAll()
+			return
+		} else if arg == "--es_only" {
+			es_only()
+			return
+		} else if arg == "--tb_only" {
+			tb_only()
+			return
 		}
-	}
-
-	if cleanOpt {
-		cleanAll()
-		return
-	}
-	if combineOpt {
-		combine()
-		return
-	}
-
-	if removeOpt {
-		remove()
-		return
 	}
 
 	min, max := 0, 10000
