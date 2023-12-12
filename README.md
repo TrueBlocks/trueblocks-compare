@@ -119,7 +119,7 @@ Strike one.
 
 Of the remaining 449 addresses, 435 contained records that were found by both EtherScan and TrueBlocks. This is to be expected. We would hope that in most cases, both systems would return similar lists of appearances (as we'll see this is not the case).
 
-For six address (listed below), Etherscan seemingly found more addresses than TrueBlocks. 333 records of this type were found, but this is not the whole story. See the note below on uncles. Etherscan has a bug related to uncles that causes it to return the incorrect block for when the uncle reward was credited. TrueBlocks gets it right.
+For five address, Etherscan seemingly found more addresses than TrueBlocks. 333 records of this type were found, but this is not the whole story. See the note below on uncles. Etherscan has a bug related to uncles that causes it to return the incorrect block for when the uncle reward was credited. TrueBlocks gets it right.
 
 Strike two.
 
