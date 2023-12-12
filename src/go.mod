@@ -1,4 +1,4 @@
-module github.com/TrueBlocks/etherscan-study
+module github.com/TrueBlocks/compare
 
 go 1.21.3
 
