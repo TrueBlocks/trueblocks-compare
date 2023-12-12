@@ -13,8 +13,22 @@ import (
 	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/utils"
 )
 
-func compare(line string) {
+type Diff struct {
+	app   types.SimpleAppearance
+	left  bool
+	right bool
+}
+
+type DiffMap map[types.SimpleAppearance]Diff
+
+func compare(line string, min, max int) {
 	if strings.HasPrefix(line, "#") {
+		return
+	}
+
+	cnt, _ := file.WordCount("list/"+line+".csv", true)
+	if cnt <= min || cnt > max {
+		fmt.Println(colors.Red, "Skipping", line, "because it has", cnt, "appearances", colors.Off)
 		return
 	}
 

@@ -4,16 +4,7 @@ import (
 	"os"
 
 	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/file"
-	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/types"
 )
-
-type Diff struct {
-	app   types.SimpleAppearance
-	left  bool
-	right bool
-}
-
-type DiffMap map[types.SimpleAppearance]Diff
 
 func main() {
 	removeOpt, downloadOpt := false, false
@@ -29,11 +20,12 @@ func main() {
 		remove()
 	}
 
+	min, max := 35000, 50000
 	contents := file.AsciiFileToLines("addresses.txt")
 	for _, line := range contents {
 		if downloadOpt {
-			download(line)
+			download(line, min, max)
 		}
-		compare(line)
+		compare(line, min, max)
 	}
 }
