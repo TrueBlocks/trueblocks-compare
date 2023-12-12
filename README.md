@@ -68,7 +68,9 @@ Note that the `chifra slurp` command has a `--types` option which takes a value 
 
 At the end of this process, we have one file in each of the two folders (`store/list` and `store/etherscan`) for each address in the `addresses.txt` file with less than 10,000 appearances. The with the name of the file is `<address>.csv`. This allows us to compare the results easily.
 
-The process only download runs the `download` process if you provide the `--download` flag. Otherwise, it only compares existing data.
+The process will only run the `download` process if you provide the `--download` flag. Otherwise, it only compares existing data.
+
+Note that in both cases, we use the `cut` command to extract the first two columns of the data. This is the `blockNumber` and `transactionIndex`. Also, notice that we stop the search at block `18517000` in both cases to ensure a fair comparison.
 
 ### Comparing the data
 
