@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/file"
+	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/utils"
 )
 
 func main() {
@@ -28,4 +29,8 @@ func main() {
 		}
 		compare(line, min, max)
 	}
+}
+
+func remove() {
+	utils.System("rm -fR tb_only es_only both ; mkdir tb_only es_only both")
 }
