@@ -179,4 +179,10 @@ Next we wanted to understand where exactly TrueBlocks is finding more appearance
 
 Each file in `store/tb_only` contains the appearances that TrueBlocks found that EtherScan did not. We can use the `chifra transactions --uniq` command to see why those appearances were found by TrueBlocks but not EtherScan.
 
+We're now studying this row in the results:
+
+![Results](./assets/results2.png)
+
+
+
 ## Why Does It Matter?
