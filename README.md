@@ -111,4 +111,4 @@ In all cases, TrueBlocks finds more appearances than Etherscan with the single e
 
 Here's some numbers:
 
-![Results](./store/assets/results.png)
+![Results](./assets/results.png)
