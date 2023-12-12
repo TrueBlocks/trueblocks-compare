@@ -183,6 +183,32 @@ We're now studying this row in the results:
 
 ![Results](./assets/results2.png)
 
+We looked at each of the 376 files which contained nearly 150,000 more appearancs than EtherScan. We found that in huge percentage of the cases, the difference was due to the fact that TrueBlocks finds appearances in three places:
 
+- in the transaction's input data
+- in the topics of the transaction's logs
+- in the data field of the transaction's logs
+
+This is totally to be expected as this is exactly where TrueBlocks' Unchained Index looks where other systems do not. In fact, we would expect TrueBlocks to find more appearances than any other system that does not look in these places.
+
+We basically used this greatly simplified alogrithm to find the differences:
+
+```[go]
+for each address where TrueBlocks found more appearances
+   for each appearance
+      list all addresses that also appeared in that transaction (i.e., neighbors)
+      check to see why the address in question appeared in that transaction
+summarize the results
+```
+
+Here's the summary:
+
+![Results](./assets/results3.png)
+
+As you can see. We find things in places others don't look.
 
 ## Why Does It Matter?
+
+Blockchains are perfect, 18-decimal place accurate accounting systems. Every 12 seconds, they come to balance on many hundreds of millions of accounts. That's true on-chain.
+
+It's imporant because we think it should be not only true, but expected, off-chain as well. We think that if you're going to build a system that claims to be a blockchain explorer, you should be able to account for every wei of every account. That's what TrueBlocks does. That's what TrueBlocks is.
