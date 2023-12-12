@@ -11,6 +11,7 @@ import (
 	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/logger"
 	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/types"
 	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/utils"
+	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/validate"
 )
 
 type Diff struct {
@@ -22,7 +23,25 @@ type Diff struct {
 type DiffMap map[types.SimpleAppearance]Diff
 
 func main() {
-	// utils.System("rm -fR tb_only es_only both ; mkdir tb_only es_only both")
+	remove, download, compare := false, false, false
+	for _, arg := range os.Args[1:] {
+		if arg == "--remove" {
+			remove = true
+		} else if arg == "--download" {
+			download = true
+		} else if arg == "--compare" {
+			compare = true
+		}
+	}
+
+	if !download && !compare && !remove {
+		logger.Error(validate.Usage("Please choose one of --remove, --download, or --compare"))
+		return
+	}
+
+	if remove {
+		utils.System("rm -fR tb_only es_only both ; mkdir tb_only es_only both")
+	}
 
 	contents := file.AsciiFileToLines("addresses.txt")
 	for _, line := range contents {
@@ -30,17 +49,18 @@ func main() {
 			continue
 		}
 
-		cmd := "chifra list --no_header --last_block 18517000 --fmt csv " + line + " | cut -d, -f 2-3 >list/" + line + ".csv"
-		doOne(cmd)
-		cnt, _ := file.WordCount("list/"+line+".csv", true)
-		if cnt <= 35000 || cnt > 50000 {
-			fmt.Println(colors.Red, "Skipping", line, "because it has", cnt, "appearances", colors.Off)
-			continue
+		if download {
+			cmd := "chifra list --no_header --last_block 18517000 --fmt csv " + line + " | cut -d, -f 2-3 >list/" + line + ".csv"
+			doOne(cmd)
+			cnt, _ := file.WordCount("list/"+line+".csv", true)
+			if cnt <= 35000 || cnt > 50000 {
+				fmt.Println(colors.Red, "Skipping", line, "because it has", cnt, "appearances", colors.Off)
+				continue
+			}
+			fmt.Println(colors.BrightYellow, "Processing", line, "because it has", cnt, "appearances", colors.Off)
+			cmd = "chifra slurp --sleep 1 --no_header --types all --appearances 0-18517000  --fmt csv " + line + " | cut -d, -f 2-3 >etherscan/" + line + ".csv"
+			doOne(cmd)
 		}
-		fmt.Println(colors.BrightYellow, "Processing", line, "because it has", cnt, "appearances", colors.Off)
-
-		cmd = "chifra slurp --sleep 1 --no_header --types all --appearances 0-18517000  --fmt csv " + line + " | cut -d, -f 2-3 >etherscan/" + line + ".csv"
-		doOne(cmd)
 
 		LogIt("Postprocessing trueblocks...")
 		tbSlice := getAppearanceMap("list/" + line + ".csv")
