@@ -1,4 +1,4 @@
-module github.com/TrueBlocks/compare
+module github.com/TrueBlocks/trueblocks-compare
 
 go 1.21.3
 
