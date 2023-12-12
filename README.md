@@ -12,6 +12,7 @@ A repository used to compare EtherScan against TrueBlocks.
   - [The Results](#the-results)
     - [Bug in EtherScan related to Uncles](#bug-in-etherscan-related-to-uncles)
     - [Why does TrueBlocks find more appearances?](#why-does-trueblocks-find-more-appearances)
+  - [Why Does It Matter?](#why-does-it-matter)
 
 ## Folder Structure
 
@@ -170,5 +171,12 @@ In other words, EtherScan reports the uncle block at block 485. However, the unc
 
 In all 333 cases, the block EtherScan reports as the uncle block is technically correct. That block is where the uncle was found. However, the uncle reward was not credited to the miner's account until a few blocks later. In every case, that block was the block that TrueBlocks reported. EtherScan got it wrong. Unless you want to lean on a technicality. I would argue that a change in balance of an account is the correct place to note in an address's history. I'll leave it up to EtherScan to decide if they want to fix this bug.
 
+Total number of place where EtherScan legitmately found more appearances than TrueBlocks: 0.
+
 ### Why does TrueBlocks find more appearances?
 
+Next we wanted to understand where exactly TrueBlocks is finding more appearances than EtherScan. Luckily we have a very handy tool to do this and all the information we need in the already existing data.
+
+Each file in `store/tb_only` contains the appearances that TrueBlocks found that EtherScan did not. We can use the `chifra transactions --uniq` command to see why those appearances were found by TrueBlocks but not EtherScan.
+
+## Why Does It Matter?
