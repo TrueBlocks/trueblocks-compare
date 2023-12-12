@@ -74,21 +74,41 @@ Note that in both cases, we use the `cut` command to extract the first two colum
 
 ### Comparing the data
 
-To compare the files, we read in both files for each address. As we read the file, we enter each appearance into a map that maps the appearance into a `Diff` structure which is a pair of `booleans`. Like this:
+To compare the files, we read in the files from both folders (`./etherscan` and `./list`) for each address. As we read the files, we enter each appearance into a map mapping the appearance to a `Diff` structure which simply a pair of two `booleans`. Like this:
 
 ```[go]
 type Diff struct {
-    app   types.SimpleAppearance
-    left  bool
-    right bool
+    app        Appearance
+    etherscan  bool
+    trueblocks bool
 }
 
-type DiffMap map[types.SimpleAppearance]Diff
+type DiffMap map[Appearance]Diff
 ```
 
-If the appearance is found in the `etherscan` file, we light up the left boolean. If it's found in the `list` file, we light up the right boolean. At the end of the process, we have a map that contains all the appearances found in both files (both booleans are lit), all the appearances found only in the `etherscan` file (only the left (i.e. etherscan) boolean is lit), and all the appearances found only in the `list` file (only the right (i.e. trueblocks) boolean is lit).
+An `Appearance` is simply a pair of `blockNumber` and `transactionIndex`:
 
-We write the appearances into the appropriate folders (`store/both`, `store/es_only`, and `store/tb_only`) and we're done.
+```[go]
+type Appearance struct {
+    blockNumber      uint64
+    transactionIndex uint64
+}
+```
+
+If an appearance is found in the `etherscan` file, we light up the `etherscan` boolean. If it's found in the `list` file, we light up the `trueblocks` boolean. At the end of the process, we have a map containing all the appearances in both files.
+
+There are three cases:
+
+1. Both booleans are lit -- we write these records to the `both` folder in a file called `<address>.csv`.
+2. Only the `etherscan` boolean is lit -- we write these records to the `es_only` folder.
+3. Only the `trueblocks` boolean is lit -- we write these records to the `tb_only` folder.
+
+And we're done.
 
 ## The Results
 
+In all cases, TrueBlocks finds more appearances than Etherscan with the single exception that Etherscan has a bug when reporting uncles prior to block 100,000. If we correct for this bug (see below), TrueBlocks finds more appearances in every cases.
+
+Here's some numbers:
+
+![Results](./store/assets/results.png)

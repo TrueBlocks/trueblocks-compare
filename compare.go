@@ -26,19 +26,22 @@ func compare(line string, min, max int) {
 		return
 	}
 
-	cnt, _ := file.WordCount("list/"+line+".csv", true)
+	cnt, _ := file.WordCount("store/list/"+line+".csv", true)
 	if cnt <= min || cnt > max {
 		fmt.Println(colors.Red, "Skipping", line, "because it has", cnt, "appearances", colors.Off)
 		return
 	}
 
+	esDownload := "store/etherscan/" + line + ".csv"
+	tbDownload := "store/list/" + line + ".csv"
+
 	LogIt("Postprocessing etherscan...")
-	esSlice := getAppearanceMap("etherscan/" + line + ".csv")
-	appsToFile(esSlice, "etherscan/"+line+".csv")
+	esSlice := getAppearanceMap(esDownload)
+	appsToFile(esSlice, esDownload)
 
 	LogIt("Postprocessing trueblocks...")
-	tbSlice := getAppearanceMap("list/" + line + ".csv")
-	appsToFile(tbSlice, "list/"+line+".csv")
+	tbSlice := getAppearanceMap(tbDownload)
+	appsToFile(tbSlice, tbDownload)
 
 	LogIt("Building diff maps...")
 	diffMap := make(DiffMap)
@@ -65,22 +68,28 @@ func compare(line string, min, max int) {
 	})
 
 	LogIt("Comparing...")
+	es_only := make([]string, 0, len(diffSlice))
+	tb_only := make([]string, 0, len(diffSlice))
+	both := make([]string, 0, len(diffSlice))
 	for _, diff := range diffSlice {
 		app := diff.app
 		if diff.left && !diff.right {
-			out := fmt.Sprintf("%d,%d\n", app.BlockNumber, app.TransactionIndex)
-			file.AppendToAsciiFile("es_only/"+line+".txt", out)
+			es_only = append(es_only, fmt.Sprintf("%d,%d\n", app.BlockNumber, app.TransactionIndex))
 		}
 		if !diff.left && diff.right {
-			out := fmt.Sprintf("%d,%d\n", app.BlockNumber, app.TransactionIndex)
-			file.AppendToAsciiFile("tb_only/"+line+".txt", out)
+			tb_only = append(tb_only, fmt.Sprintf("%d,%d\n", app.BlockNumber, app.TransactionIndex))
 		}
 		if diff.left && diff.right {
-			out := fmt.Sprintf("%d,%d\n", app.BlockNumber, app.TransactionIndex)
-			file.AppendToAsciiFile("both/"+line+".txt", out)
+			both = append(both, fmt.Sprintf("%d,%d\n", app.BlockNumber, app.TransactionIndex))
 		}
 	}
+
+	file.LinesToAsciiFile("store/es_only/"+line+".txt", es_only)
+	file.LinesToAsciiFile("store/tb_only/"+line+".txt", tb_only)
+	file.LinesToAsciiFile("store/both/"+line+".txt", both)
+
 	clean(line)
+
 	logger.Info("")
 }
 
@@ -89,15 +98,17 @@ func getAppearanceMap(filename string) []types.SimpleAppearance {
 	m := make(map[types.SimpleAppearance]bool)
 	for _, line := range contents {
 		parts := strings.Split(line, ",")
-		app := types.SimpleAppearance{
-			BlockNumber:      uint32(utils.MustParseUint(parts[0])),
-			TransactionIndex: uint32(utils.MustParseUint(parts[1])),
+		if len(parts) > 1 {
+			app := types.SimpleAppearance{
+				BlockNumber:      uint32(utils.MustParseUint(parts[0])),
+				TransactionIndex: uint32(utils.MustParseUint(parts[1])),
+			}
+			m[app] = true
 		}
-		m[app] = true
 	}
 
 	slice := make([]types.SimpleAppearance, 0, len(contents))
-	for app, _ := range m {
+	for app := range m {
 		slice = append(slice, app)
 	}
 	sort.Slice(slice, func(i, j int) bool {
@@ -115,20 +126,26 @@ func appsToFile(slice []types.SimpleAppearance, filename string) {
 	file.LinesToAsciiFile(filename, lines)
 }
 
+func cleanOne(fn string) {
+	apps := getAppearanceMap(fn)
+	if len(apps) == 0 {
+		os.Remove(fn)
+	} else {
+		contents := make([]string, 0, len(apps))
+		for _, app := range apps {
+			contents = append(contents, fmt.Sprintf("%d,%d", app.BlockNumber, app.TransactionIndex))
+		}
+		file.LinesToAsciiFile(fn, contents)
+	}
+}
+
 func clean(line string) {
 	logger.Info("Cleaning:", line)
-	contents := strings.Trim(file.AsciiFileToString("etherscan/"+line+".csv"), "\n")
-	if len(contents) > 0 {
-		file.StringToAsciiFile("etherscan/"+line+".csv", contents)
-	} else {
-		os.Remove("etherscan/" + line + ".csv")
-	}
-	contents = strings.Trim(file.AsciiFileToString("list/"+line+".csv"), "\n")
-	if len(contents) > 0 {
-		file.StringToAsciiFile("list/"+line+".csv", contents)
-	} else {
-		os.Remove("list/" + line + ".csv")
-	}
+	cleanOne(fmt.Sprintf("store/etherscan/%s.csv", line))
+	cleanOne(fmt.Sprintf("store/list/%s.csv", line))
+	cleanOne(fmt.Sprintf("store/both/%s.txt", line))
+	cleanOne(fmt.Sprintf("store/es_only/%s.txt", line))
+	cleanOne(fmt.Sprintf("store/tb_only/%s.txt", line))
 }
 
 func LogIt(msg string) {
