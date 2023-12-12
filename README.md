@@ -1,6 +1,6 @@
 # trueblocks-compare
 
-A repository used to compare different data source against TrueBlocks code
+A repository used to compare EtherScan against TrueBlocks.
 
 ## Folder Structure
 
