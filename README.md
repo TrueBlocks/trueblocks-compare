@@ -16,6 +16,8 @@ A repository used to compare EtherScan against TrueBlocks.
 
 ## Folder Structure
 
+This is what your directory structure should look like if you wish to reproduce the results:
+
 ```[shell]
 .                  # The root of the repo. Where the code is stored.
 ├── bin            # The location of the built file.
@@ -114,23 +116,18 @@ Here's the baseline numbers:
 
 ![Results](./assets/results1.png)
 
-We checked 547 randomly selected addresses. Of those, 98 had more than 10,000 appearances and were ignored. We ignored these becuse Etherscan does not return more than 10,000 records for any given address.
+We checked 1000 randomly selected addresses. Of those, 328 had more than 5,000 appearances and were ignored. We ignored these because Etherscan does not return more than 10,000 records for any given address. We wanted to stay clear of that limit to avoid confusion.
 
-Strike one.
+Of the remaining 672 addresses, all of them contained records that were found by both EtherScan and TrueBlocks. This is to be
+expected. We would hope that in most cases, both systems would return similar lists of appearances.
 
-Of the remaining 449 addresses, 435 contained records that were found by both EtherScan and TrueBlocks. This is to be expected. We would hope that in most cases, both systems would return similar lists of appearances (as we'll see this is not the case).
+For 15 addresses, Etherscan seemingly found more addresses than TrueBlocks. 364 records of this type were found, but this is not the whole story. Etherscan has a bug related to uncles that causes it to return the incorrect block number for an uncle reward. TrueBlocks gets it right.
 
-For five address, Etherscan seemingly found more addresses than TrueBlocks. 333 records of this type were found, but this is not the whole story. See the note below on uncles. Etherscan has a bug related to uncles that causes it to return the incorrect block for when the uncle reward was credited. TrueBlocks gets it right.
-
-Strike two.
-
-For 376 of the 449 addresses we checked (that's 83%) TrueBlocks found (sometimes significantly more) appearances.
-
-Strike three.
+For 555 of the 672 addresses we checked (that's 83%) TrueBlocks found (sometimes significantly more) appearances.
 
 ### Bug in EtherScan related to Uncles
 
-In the 449 addresses we searched, we found six where EtherScan found more appearances than TrueBlocks. In all six cases, the difference was due to a bug in EtherScan related to uncles. The bug is that EtherScan returns the block number when the uncle was found. TrueBlocks returns the block number in which the uncle reward was credited to the miner's account. We know this because we ran the following analysis on all 333 occurrences of this issue.
+In the 672 addresses we searched, we found 15 where EtherScan found more appearances than TrueBlocks. In all 15 cases, however,the difference was due to a bug in EtherScan related to uncles. The bug is that EtherScan returns the block number when the uncle was found. TrueBlocks returns the block number in which the uncle reward was credited to the miner's account. We know this because we ran the following analysis on all 364 appearances of this issue.
 
 First, we extracted just the block number from the `etherscan` files. We then calculated 1 block prior to that block number (P) and seven blocks after that block number (A). We then ran:
 
@@ -138,7 +135,7 @@ First, we extracted just the block number from the `etherscan` files. We then ca
 chifra state --parts balance P-A <address> --changes
 ```
 
-For example, for address `0x3f98e477a361f777da14611a7e419a75fd238b6b`, Etherscan reports the following appearances:
+which extracts the balances for the given address at the given blocks. For example, for address `0x3f98e477a361f777da14611a7e419a75fd238b6b`, Etherscan reports the following appearances:
 
 ```[shell]
 485,uncle
@@ -147,13 +144,13 @@ For example, for address `0x3f98e477a361f777da14611a7e419a75fd238b6b`, Etherscan
 ...
 ```
 
-Running:
+This command
 
 ```[shell]
 chifra state --parts balance 484-492 0x48040276e9c17ddbe5c8d2976245dcd0235efa43
 ```
 
-results in:
+returns
 
 ```[shell]
 blockNumber,address,balance
@@ -167,17 +164,15 @@ blockNumber,address,balance
 491,0x48040276e9c17ddbe5c8d2976245dcd0235efa43,3750000000000000000
 ```
 
-In other words, EtherScan reports the uncle block at block 485. However, the uncle reward was not credited to the miner's account until block 487. TrueBlocks reports the uncle at block 487.
+As you can see, EtherScan reports the uncle block at block 485. However, the uncle reward was not credited to the miner's account until block 487. TrueBlocks reports the uncle at block 487.
 
-The results of this run are in the data folder in the file called `es_only.txt`.
+In all 364 cases, the block EtherScan reports as the uncle block is technically correct. However, the uncle reward was not credited to the miner's account until a few blocks later. In each case, that block was the block that TrueBlocks reported. EtherScan got it wrong. Unless you want to lean on a technicality. I would argue that a change in balance of an account is the correct place to note in an address's history. I'll leave it up to EtherScan to decide if they want to fix this bug.
 
-In all 333 cases, the block EtherScan reports as the uncle block is technically correct. That block is where the uncle was found. However, the uncle reward was not credited to the miner's account until a few blocks later. In every case, that block was the block that TrueBlocks reported. EtherScan got it wrong. Unless you want to lean on a technicality. I would argue that a change in balance of an account is the correct place to note in an address's history. I'll leave it up to EtherScan to decide if they want to fix this bug.
-
-Total number of place where EtherScan legitmately found more appearances than TrueBlocks: 0.
+Total number of place where EtherScan legitmately found more appearances than TrueBlocks: ZERO!
 
 ### Why does TrueBlocks find more appearances?
 
-Next we wanted to understand where exactly TrueBlocks is finding more appearances than EtherScan. Luckily we have a very handy tool to do this and all the information we need in the already existing data.
+Next we wanted to understand where exactly TrueBlocks is finding more appearances than EtherScan. Luckily we have a very handy tool to do this and all the information we need is already in the existing data.
 
 Each file in `store/tb_only` contains the appearances that TrueBlocks found that EtherScan did not. We can use the `chifra transactions --uniq` command to see why those appearances were found by TrueBlocks but not EtherScan.
 
@@ -185,11 +180,12 @@ We're now studying this row in the results:
 
 ![Results](./assets/results2.png)
 
-We looked at each of the 376 files which contained nearly 150,000 more appearancs than EtherScan. We found that in huge percentage of the cases, the difference was due to the fact that TrueBlocks finds appearances in three places:
+We looked at each of the 555 files which contained more than 150,000 more appearancs than EtherScan. We found that in huge percentage of the cases, the difference was due to the fact that TrueBlocks finds appearances in one of four places:
 
 - in the transaction's input data
 - in the topics of the transaction's logs
 - in the data field of the transaction's logs
+- in the data field of the transaction's traces
 
 This is totally to be expected as this is exactly where TrueBlocks' Unchained Index looks where other systems do not. In fact, we would expect TrueBlocks to find more appearances than any other system that does not look in these places.
 
