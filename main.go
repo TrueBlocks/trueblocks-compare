@@ -10,6 +10,8 @@ import (
 	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/utils"
 )
 
+var min, max = 0, 5000
+
 func main() {
 	downloadOpt := false
 	for _, arg := range os.Args[1:] {
@@ -33,8 +35,7 @@ func main() {
 		}
 	}
 
-	min, max := 0, 10000
-	contents := file.AsciiFileToLines("addresses.txt")
+	contents := file.AsciiFileToLines("store/addresses.txt")
 	for _, line := range contents {
 		line = strings.ToLower(line)
 		if downloadOpt {
@@ -46,7 +47,7 @@ func main() {
 
 func remove() {
 	// utils.System("rm -fR tb_only es_only both ; mkdir tb_only es_only both")
-	contents := file.AsciiFileToLines("addresses.txt")
+	contents := file.AsciiFileToLines("store/addresses.txt")
 	for _, line := range contents {
 		line = strings.ToLower(line)
 		fn := fmt.Sprintf("store/list/%s.csv", line)
@@ -67,23 +68,25 @@ func count(fn string) int {
 
 func combine() {
 	fmt.Print("address,list,etherscan,both,es_only,tb_only\n")
-	contents := file.AsciiFileToLines("addresses.txt")
+	contents := file.AsciiFileToLines("store/addresses.txt")
 	for _, line := range contents {
 		line = strings.ToLower(line)
 		tb := count(fmt.Sprintf("store/list/%s.csv", line))
+		if tb == 0 || tb > max {
+			continue
+		}
 		es := count(fmt.Sprintf("store/etherscan/%s.csv", line))
 		both := count(fmt.Sprintf("store/both/%s.txt", line))
 		es_only := count(fmt.Sprintf("store/es_only/%s.txt", line))
 		tb_only := count(fmt.Sprintf("store/tb_only/%s.txt", line))
-		if tb > 0 && tb < 10001 {
-			out := fmt.Sprintf("%s,%d,%d,%d,%d,%d\n", line, tb, es, both, es_only, tb_only)
-			fmt.Print(out)
-		}
+		out := fmt.Sprintf("%s,%d,%d,%d,%d,%d\n", line, tb, es, both, es_only, tb_only)
+		out = strings.Trim(strings.Replace(out+",", ",0,", ",,", -1), ",")
+		fmt.Print(out)
 	}
 }
 
 func cleanAll() {
-	contents := file.AsciiFileToLines("addresses.txt")
+	contents := file.AsciiFileToLines("store/addresses.txt")
 	for _, line := range contents {
 		line = strings.ToLower(line)
 		clean(line)

@@ -10,7 +10,7 @@ import (
 
 func es_only() {
 	cnt := 0
-	contents := file.AsciiFileToLines("addresses.txt")
+	contents := file.AsciiFileToLines("store/addresses.txt")
 	for _, line := range contents {
 		if !file.FileExists("store/es_only/" + line + ".txt") {
 			logger.Info("Skipping address", line)
