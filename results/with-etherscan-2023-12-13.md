@@ -2,48 +2,55 @@
 
 - [TrueBlocks Comparison with EtherScan](#trueblocks-comparison-with-etherscan)
   - [The Problem](#the-problem)
-  - [What We Compare](#what-we-compare)
+  - [What We Compared](#what-we-compared)
   - [The Results](#the-results)
     - [Bug in EtherScan related to Uncles](#bug-in-etherscan-related-to-uncles)
   - [Why Does It Matter?](#why-does-it-matter)
   - [Replicating The Test](#replicating-the-test)
+  - [What is an Appearance?](#what-is-an-appearance)
 
 ## The Problem
 
-TrueBlocks command line tool called `chifra` produces what we call an _index of appearances_, because each time an address appears on chain, it is extracted and saved. This way we can find all transactions for given address and to our knowledge every other indexer creates a similar database.
+TrueBlocks' command line tool `chifra scrape` produces what we call the Unchained Index (or sometimes an _index of appearances_). This index records each time an address appears anywhere on the chain. In this way, we can find complete transaction histories. No other indexer, to our knowledge, is as complete.
 
-But can TrueBlocks find more appearances than EtherScan?
+In this article, we compare the TrueBlocks' indexer with EtherScan's web 2.0 API.
 
-## What We Compare
+## What We Compared
 
-We will ask both TrueBlocks' `chifra` and EtherScan for appearances of a number of random addresses.
+We queried both TrueBlocks and EtherScan for "appearances" for about 1,000 randomly-selected addresses. The results are presented below.
 
-There is an important difference between TrueBlocks and EtherScan: TrueBlocks is local software, running against user's own local node. This means that TrueBlocks do not need to care about rate limits, request costs or results pagination.
+There is an important distinction to be made between TrueBlocks and EtherScan. TrueBlocks is local-first running against a local Ethereum node. This means TrueBlocks does not rate limit, nor does it generate any cost, nor paginates. EtherScan, on the other hand, is a web 2.0 API--they have no choice but to rate limit. Access to some of their data is expensive. And, they paginate everything.
 
-EtherScan on the other hand is a service - they have to pay for every request they get and hence need to impose limits. We need to keep those in mind in order to get a complete data set to compare.
+Keep this in mind as we proceed.
 
 ## The Results
 
-We checked 1000 randomly selected addresses. Of those, we discarded 328 which had more than 5,000 appearances. Etherscan, as mentioned in _What We Compare_ section is a service and does not return more than 10,000 records for any given address. We wanted to stay clear of that limit to avoid confusion.
+We checked 1,000 randomly selected addresses. The data produced is available in `data.tar.gz`.
 
-It gave us **672** addresses to compare.
-- for **83%** of addresses (555) TrueBlocks found **166,481** appearances more
-- for **no** addresses did EtherScan find more appearances than TrueBlocks
-- both has found the same 282,478 appearances
+Of these 1,000 addresses, we discarded 328 because they had more than 5,000 appearances. Etherscan's free service does not return more than 10,000 records for any given address. So we stayed well short of that limit. TrueBlocks easily returns 100,000s of records nearly instantaneously.
 
-Initially it seemed that for 2% (15) addresses EtherScan returned 364 appearances more. However it was due to EtherScan bug, see _Bug in EtherScan related to Uncles_ below.
+![Results](../assets/results2.png)
 
-We understand that the number of appearances found by TrueBlocks is huge and may look like a mistake. But one needs to remember that TrueBlocks is not only looking for token transfers. In huge percentage of the cases, the difference was due to the fact that TrueBlocks finds appearances in one of four places:
+We were left with **672** addresses to compare.
+
+- for **83%** (555) of those addresses, TrueBlocks found found more appearances than Etherscan. **166,481** more!
+- for **NO** addresses did EtherScan find more appearances than TrueBlocks
+- **282,478** appearances showed up in both data sets
+
+In our initial results, EtherScan seemingly return more appearances than TrueBlocks (15 addresses--364 appearances). However we found that this was due to a bug in EtherScan, see _EtherScan's uncles bug_ below.
+
+We recognize that the huge number of additional appearances found by TrueBlocks seems like a mistake. But one needs to remember that TrueBlocks not only looks for token transfers. In a large percentage of cases, TrueBlocks finds appearances where EtherScan doesn't look:
+
 - in the transaction's input data
 - in the topics of the transaction's logs
 - in the data field of the transaction's logs
 - in the data field of the transaction's traces
 
-This is totally to be expected as this is exactly where TrueBlocks' Unchained Index looks where other systems do not. In fact, we would expect TrueBlocks to find more appearances than any other system that does not look in these places.
+This is to be expected as these four places are exactly where the Unchained Index looks where other systems do not. In fact, TrueBlocks always finds more appearances than others system because they don't even look.
 
-![Results](./assets/results3.png)
+![Results](../assets/results3.png)
 
-As you can see. We find things in places others don't look.
+As you can see. We find things others don't.
 
 ### Bug in EtherScan related to Uncles
 
@@ -105,3 +112,16 @@ In order to run the test on your own, you will need TrueBlocks Core (`chifra`) [
 Next, clone [compare repository](https://github.com/TrueBlocks/trueblocks-compare). Follow the instructions from the README to set up the test code.
 
 Please share the results with us, on [X/Twitter](https://twitter.com/trueblocks) or [GitHub](https://github.com/TrueBlocks/trueblocks-compare/issues/new). If you have questions, we invite you to join [our Discord server](https://discord.com/invite/kAFcZH2x7K).
+
+## What is an Appearance?
+
+"Appearances" are seemingly simple. For any address, its appearances are whereever it appears on the chain.
+
+For example, the first three appearances for `trueblocks.eth` are:
+
+```[csv]
+blockNumber,transactionIndex
+8854723,61
+8856290,62
+8856316,91
+```
