@@ -11,6 +11,7 @@ The methodology and results are described in [Comparison](./Comparison.md)
     - [Downloading the data](#downloading-the-data)
     - [Comparing the data](#comparing-the-data)
     - [Why does TrueBlocks find more appearances?](#why-does-trueblocks-find-more-appearances)
+  - [List of Comparisons](#list-of-comparisons)
 
 ## Folder Structure
 
@@ -123,3 +124,14 @@ for each address where TrueBlocks found more appearances
       check to see why the address in question appeared in that transaction
 summarize the results
 ```
+
+## List of Comparisons
+
+We've written a number of comparisons with other data sources. They are listed here:
+
+| Name                                                                                                                                                             | Date       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| [TrueBlocks / EtherScan Comparison](./results/with-etherscan-2023-12-13.md)                                                                                      | 2023-12-13 |
+| [TrueBlocks / Covalent Comparison](https://medium.com/coinmonks/trueblocks-covalent-comparison-7b42f3d1e6f7)                                                     | 2022-09-20 |
+| [The Difference Between TrueBlocks and The Graph](https://trueblocks.io/papers/2021/the-difference-between-trueBlocks-and-rotki-and-trueBlocks-and-thegraph.pdf) | 2021-04-02 |
+| [How Accurate is Etherscan](https://tjayrush.medium.com/how-accurate-is-etherscan-83dab12eeedd)                                                                  | 2020-06-11 |
