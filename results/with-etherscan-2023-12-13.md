@@ -29,14 +29,14 @@ We checked 1,000 randomly-selected addresses against both Etherscan and TrueBloc
 
 Of those 1,000 addresses, 328 were discarded because they had more than 5,000 appearances. Etherscan's free service limits its return to less than 10,000 records. We wanted to stay as far away from that limit as possible. (Plus, waiting for more than 5,000 records from Etherscan was way too slow. TrueBlocks can easily return 100,000s of records for any address almost instaneously.)
 
+<img src="../assets/results1.png" alt="Results" width="50%" height="auto">
+
 Of the remaining **672** addresses:
 
 - **555** (**83%**) addresses had appearances found by TrueBlocks but not Etherscan. That's **166,481** more appearances!
 - **NO** appearances were found by EtherScan that were not also found by TrueBlocks
 - for **15** addresses, Etherscan found 364 different appearances than TrueBlocks, but in all 15 cases, the difference was due to a bug in EtherScan. (See below.)
 - all **672** addresses had appearances in common. This constituted **282,478** appearances
-
-<img src="../assets/results1.png" alt="Results" width="50%" height="auto">
 
 We recognize that the huge number of additional appearances found by TrueBlocks seems like a mistake. But one needs to realize that TrueBlocks looks for more than just a small set of known behaviours (such as `Transfers`). TrueBlocks looks everywhere. In particulate, TrueBlocks looks in:
 
