@@ -5,9 +5,9 @@
   - [What We Compared](#what-we-compared)
   - [The Results](#the-results)
     - [Bug in EtherScan related to Uncles](#bug-in-etherscan-related-to-uncles)
+  - [What is an Appearance?](#what-is-an-appearance)
   - [Why Does This Matter?](#why-does-this-matter)
   - [Replicating The Test](#replicating-the-test)
-  - [What is an Appearance?](#what-is-an-appearance)
 
 ## The Problem
 
@@ -96,6 +96,21 @@ In all 364 cases, the block EtherScan reports as the uncle block is technically 
 
 Total number of place where EtherScan legitmately found more appearances than TrueBlocks: **ZERO**!
 
+## What is an Appearance?
+
+"Appearances" are seemingly simple. For any address, the address's list of appearances is a list of blocknumber.transactionId pairs noting whereever the address appears on the chain.
+
+For example, the first three appearances for `trueblocks.eth` are:
+
+```[csv]
+blockNumber,transactionIndex
+8854723,61
+8856290,62
+8856316,91
+```
+
+Easy enough. Just look at `from`, `to`, `log topic 0` and a few other places. That's what most indexers do. But as we've demonstrated above, there's way more to the story. Please see a very detailed discussion in the [Specification of the Unchained Index](https://trueblocks.io/papers/2023/specification-for-the-unchained-index-v2.0.0-release.pdf).
+
 ## Why Does This Matter?
 
 Blockchains are perfect, 18-decimal place accurate accounting systems. Every 12 seconds, they come to balance on many hundreds of millions of accounts. That's true on-chain.
@@ -111,18 +126,3 @@ In order to run the test on your own, you will need TrueBlocks Core (`chifra`) [
 Next, clone [this repo](https://github.com/TrueBlocks/trueblocks-compare). Follow the instructions from the README to set up the test code.
 
 Share your results with us, on [X/Twitter](https://twitter.com/trueblocks) or [GitHub](https://github.com/TrueBlocks/trueblocks-compare/issues/new). If you have questions, we invite you to join [our Discord server](https://discord.com/invite/kAFcZH2x7K).
-
-## What is an Appearance?
-
-"Appearances" are seemingly simple. For any address, the address's list of appearances is a list of blocknumber.transactionId pairs noting whereever the address appears on the chain.
-
-For example, the first three appearances for `trueblocks.eth` are:
-
-```[csv]
-blockNumber,transactionIndex
-8854723,61
-8856290,62
-8856316,91
-```
-
-Easy enough. Just look at `from`, `to`, `log topic 0` and a few other places. That's what most indexers do. But as we've demonstrated above, there's way more to the story. Please see a very detailed discussion in the [Specification of the Unchained Index](https://trueblocks.io/papers/2023/specification-for-the-unchained-index-v2.0.0-release.pdf).
