@@ -11,9 +11,9 @@
 
 ## The Problem
 
-TrueBlocks' command line tool `chifra scrape` produces the Unchained Index. The best _index of appearances_ that we know of. The Unchained Index includes a record each time an address appears anywhere on the chain. No other indexer, to our knowledge, is as complete.
+TrueBlocks' command line tool `chifra scrape` produces the [Unchained Index](https://trueblocks.io/papers/2023/specification-for-the-unchained-index-v2.0.0-release.pdf). The best _index of appearances_ that we know of. The Unchained Index includes a record each time an address appears anywhere on the chain. No other indexer, to our knowledge, is as complete.
 
-In this article, we compare the TrueBlocks' indexer with EtherScan's web 2.0 API.
+In this article, we compare the TrueBlocks' indexer with EtherScan's web 2.0 API. Spoiler alert: TrueBlocks is better. Way better.
 
 ## What We Compared
 
