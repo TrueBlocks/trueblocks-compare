@@ -1,7 +1,7 @@
 # TrueBlocks Comparison with EtherScan
 
 A repository used to compare EtherScan against TrueBlocks.
-The methodology and results are described in [Comparison](./Comparison.md)
+The methodology and results are described in [Comparison](./results/with-etherscan-2023-12-13.md)
 
 - [TrueBlocks Comparison with EtherScan](#trueblocks-comparison-with-etherscan)
   - [Folder Structure](#folder-structure)
