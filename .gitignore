@@ -14,3 +14,4 @@ store
 go.work
 .DS_Store
 *shit*
+*.sqlite*
