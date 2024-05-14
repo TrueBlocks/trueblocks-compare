@@ -121,6 +121,17 @@ func (d *Database) SaveAppearances(provider string, appearances []types.Appearan
 	return
 }
 
+func (d *Database) SaveIncompatibleAddress(address string, appearances []types.Appearance) (err error) {
+	_, err = d.db.NamedExec(
+		`insert into incompatible_addresses values(:address, :appearanceCount)`,
+		map[string]any{
+			"address":         address,
+			"appearanceCount": len(appearances),
+		},
+	)
+	return
+}
+
 type dbAppearance struct {
 	Address          string `db:"address"`
 	BlockNumber      int32  `db:"block_number"`

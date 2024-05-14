@@ -15,12 +15,17 @@ CREATE TABLE IF NOT EXISTS appearances (
 CREATE INDEX IF NOT EXISTS appearances_appearance ON appearances (address, block_number, transaction_index);
 CREATE INDEX IF NOT EXISTS appearances_provider ON appearances (provider);
 
+CREATE TABLE IF NOT EXISTS incompatible_addresses (
+	address VARCHAR(42) NOT NULL,
+	appearances INT
+);
+
 CREATE VIEW view_appearances_with_providers AS SELECT
 address,
 block_number,
 transaction_index,
 JSON_GROUP_ARRAY ( provider ) as providers
-FROM appearances
+FROM (SELECT DISTINCT * FROM appearances)
 GROUP BY address, block_number, transaction_index;
 
 COMMIT;
