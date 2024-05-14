@@ -7,9 +7,9 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"slices"
 	"strings"
-	"sync"
 
 	sdk "github.com/TrueBlocks/trueblocks-core/sdk"
 	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/config"
@@ -17,10 +17,11 @@ import (
 )
 
 var supportedProviders = []string{
+	"chifra",
 	"key",
 	"etherscan",
-	"covalent",
-	"alchemy",
+	// "covalent",
+	// "alchemy",
 }
 
 type Comparison struct {
@@ -36,6 +37,7 @@ func Setup() (c *Comparison) {
 	var err error
 	c = &Comparison{
 		addressFilePath: os.Args[1],
+		maxAppearances:  5000,
 	}
 
 	c.Database, err = NewDatabaseConnection(false)
@@ -56,17 +58,38 @@ func Setup() (c *Comparison) {
 func (c *Comparison) detectProviders(chain string) {
 	detected := make([]string, 0, len(supportedProviders))
 
+	var hasChifra bool
+	var hasKey bool
+
 	for _, providerName := range supportedProviders {
-		if providerName == "key" {
-			if config.GetChain(chain).KeyEndpoint != "" {
-				detected = append(detected, "key")
+		switch providerName {
+		case "chifra":
+			// statusOpts := &sdk.StatusOptions{}
+			// _, _, err := statusOpts.StatusDiagnose()
+			_, err := exec.LookPath("chifra")
+			if err == nil {
+				detected = append(detected, "chifra")
+				hasChifra = true
+			} else {
+				log.Println("you don't have chifra:", err)
 			}
 			continue
+		case "key":
+			if config.GetChain(chain).KeyEndpoint != "" {
+				detected = append(detected, "key")
+				hasKey = true
+			}
+			continue
+		default:
+			if config.GetKey(providerName).ApiKey != "" {
+				detected = append(detected, providerName)
+			}
 		}
-		if config.GetKey(providerName).ApiKey != "" {
-			detected = append(detected, providerName)
+		if !hasChifra && !hasKey {
+			log.Fatalln("either chifra or Key is required")
 		}
 	}
+
 	c.Providers = detected
 }
 
@@ -87,81 +110,77 @@ func stringToSlurpSource(name string) (source sdk.SlurpSource) {
 	return source
 }
 
-type AppearancesByProvider struct {
-	Provider    string
-	Appearances []types.Appearance
-}
+// type AppearancesByProvider struct {
+// 	Provider    string
+// 	Appearances []types.Appearance
+// }
 
 func (c *Comparison) DownloadAppearances() (err error) {
-	var wg sync.WaitGroup
 	addressChan := make(chan string, 100)
-	appearanceChan := make(chan AppearancesByProvider, 100)
-	go func() {
-		err = loadAddressesFromFile(c.addressFilePath, addressChan)
-		if err != nil {
-			// return
-			log.Fatalln(err)
-		}
-	}()
-	var providerWg sync.WaitGroup
-	channelByProvider := make(map[string]chan string, len(supportedProviders))
-	for _, provider := range supportedProviders {
-		channelByProvider[provider] = make(chan string, 100)
-		// defer close(channelByProvider[provider])
-		providerWg.Add(1)
-		go func(provider string) {
-			for address := range channelByProvider[provider] {
-				opts := sdk.SlurpOptions{
-					Source: stringToSlurpSource(provider),
-					Addrs:  []string{address},
-					Types:  sdk.STAll,
-				}
-				apps, _, err := opts.SlurpAppearances()
-				if err != nil {
-					log.Fatalln("error downloading data from", provider, err)
-				}
-				appearanceChan <- AppearancesByProvider{
-					Provider:    provider,
-					Appearances: apps,
-				}
-			}
-			providerWg.Done()
-		}(provider)
+	filterByProvider := "key"
+	if slices.Contains(c.Providers, "chifra") {
+		filterByProvider = "chifra"
+	}
+	providers := slices.DeleteFunc(c.Providers, func(element string) bool {
+		return element == filterByProvider
+	})
+
+	err = loadAddressesFromFile(c.addressFilePath, addressChan)
+	if err != nil {
+		log.Fatalln(err)
 	}
 
-	go func() {
-		for apps := range appearanceChan {
-			log.Println("Saving", len(apps.Appearances), "appearances")
-			if err := c.Database.SaveAppearances(apps.Provider, apps.Appearances); err != nil {
-				log.Fatalln("error while saving appearances:", err)
-			}
-			wg.Done()
-		}
-	}()
-
 	for address := range addressChan {
-		downloadedFor, _, err := c.Database.Downloaded(address)
+		appearances, ok, err := c.checkAddress(filterByProvider, address)
 		if err != nil {
 			return err
 		}
+		if !ok {
+			log.Println("Address", address, "is incompatible")
+			c.Database.SaveIncompatibleAddress(address, appearances)
+			continue
+		}
+		if err = c.Database.SaveAppearances(filterByProvider, appearances); err != nil {
+			return err
+		}
 
-		for _, provider := range supportedProviders {
-			if slices.Contains(downloadedFor, provider) {
-				continue
+		for _, provider := range providers {
+			log.Println("Downloading from", provider, "address", address)
+			opts := sdk.SlurpOptions{
+				Source: stringToSlurpSource(provider),
+				Addrs:  []string{address},
+				Types:  sdk.STAll,
 			}
-			wg.Add(1)
-			channelByProvider[provider] <- address
+			appearances, _, err := opts.SlurpAppearances()
+			if err != nil {
+				log.Fatalln("error downloading data from", provider, err)
+			}
+			if err = c.Database.SaveAppearances(provider, appearances); err != nil {
+				return err
+			}
 		}
 	}
-	for _, channel := range channelByProvider {
-		close(channel)
+
+	return
+}
+
+func (c *Comparison) checkAddress(provider string, address string) (appearances []types.Appearance, ok bool, err error) {
+	if provider == "chifra" {
+		listOpts := &sdk.ListOptions{
+			Addrs: []string{address},
+		}
+		appearances, _, err = listOpts.List()
+
+	} else {
+		opts := sdk.SlurpOptions{
+			Source: stringToSlurpSource(provider),
+			Addrs:  []string{address},
+			Types:  sdk.STAll,
+		}
+		appearances, _, err = opts.SlurpAppearances()
 	}
 
-	providerWg.Wait()
-	close(appearanceChan)
-
-	wg.Wait()
-
+	ok = len(appearances) >= c.minAppearances && len(appearances) <= c.maxAppearances
 	return
 }
 
