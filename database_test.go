@@ -132,7 +132,7 @@ func TestDatabase_SaveAppearances(t *testing.T) {
 			TransactionIndex: 2,
 		},
 		{
-			Address:          base.HexToAddress("0x3"),
+			Address:          base.HexToAddress("0x2"),
 			BlockNumber:      3,
 			TransactionIndex: 3,
 		},
@@ -149,5 +149,73 @@ func TestDatabase_SaveAppearances(t *testing.T) {
 	}
 	if count != 3 {
 		t.Fatal("wrong count:", count)
+	}
+}
+
+func TestDatabase_SelectByProviders(t *testing.T) {
+	d, cleanup := makeTestDatabase(t)
+	defer cleanup()
+
+	appearances := []types.Appearance{
+		{
+			Address:          base.HexToAddress("0x0"),
+			BlockNumber:      1,
+			TransactionIndex: 1,
+		},
+		{
+			Address:          base.HexToAddress("0x1"),
+			BlockNumber:      2,
+			TransactionIndex: 2,
+		},
+		{
+			Address:          base.HexToAddress("0x2"),
+			BlockNumber:      3,
+			TransactionIndex: 3,
+		},
+	}
+
+	if err := d.SaveAppearances("etherscan", []types.Appearance{appearances[0]}); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.SaveAppearances("etherscan", []types.Appearance{appearances[1]}); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.SaveAppearances("alchemy", []types.Appearance{appearances[1]}); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.SaveAppearances("key", []types.Appearance{appearances[1]}); err != nil {
+		t.Fatal(err)
+	}
+
+	esOnly, err := d.AppearancesByProviders([]string{"etherscan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := len(esOnly); l != 1 {
+		t.Fatal("wrong length", l)
+	}
+
+	alchemyOnly, err := d.AppearancesByProviders([]string{"alchemy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := len(alchemyOnly); l != 0 {
+		t.Fatal("wrong length", l)
+	}
+
+	etherscanAlchemy, err := d.AppearancesByProviders([]string{"etherscan", "alchemy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := len(etherscanAlchemy); l != 0 {
+		t.Fatal("wrong length", l)
+	}
+
+	keyOnly, err := d.AppearancesByProviders([]string{"key"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := len(keyOnly); l != 0 {
+		t.Fatal("wrong length", l)
 	}
 }

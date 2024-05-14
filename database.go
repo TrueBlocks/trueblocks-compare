@@ -2,18 +2,20 @@ package main
 
 import (
 	"database/sql"
+	"log"
 	"os"
-	"strings"
 	"time"
 
+	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/base"
 	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/types"
+	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
 
 const defaultDatabaseFileName = "database.sqlite"
 
 type Database struct {
-	db       *sql.DB
+	db       *sqlx.DB
 	fileName string
 	readOnly bool
 }
@@ -33,7 +35,7 @@ func NewDatabaseConnection(override bool) (d *Database, err error) {
 }
 
 func (d *Database) openDatabase() (err error) {
-	d.db, err = sql.Open("sqlite", d.fileName)
+	d.db, err = sqlx.Open("sqlite", d.fileName)
 	return
 }
 
@@ -53,10 +55,12 @@ func (d *Database) Close() error {
 }
 
 func (d *Database) MarkAsDownloaded(address string, provider string) (err error) {
-	_, err = d.db.Exec(
-		"insert into download_status values(@address, @provider);",
-		sql.Named("address", address),
-		sql.Named("provider", provider),
+	_, err = d.db.NamedExec(
+		"insert into download_status values(:address, :provider)",
+		map[string]interface{}{
+			"address":  address,
+			"provider": provider,
+		},
 	)
 	return
 }
@@ -74,17 +78,23 @@ func (d *Database) MarkAsDownloaded(address string, provider string) (err error)
 // }
 
 func (d *Database) Downloaded(address string) (providers []string, anyProvider bool, err error) {
-	var foundProviders string
-	err = d.db.QueryRow(
-		`select provider from download_status where address = @address;`,
-		sql.Named("address", address),
-	).Scan(&foundProviders)
-	if len(foundProviders) > 0 {
-		anyProvider = true
+	stmt, err := d.db.PrepareNamed(
+		`select provider from download_status where address = :address`,
+	)
+	if err != nil {
+		// if err == sql.ErrNoRows {
+		// 	err = nil
+		// }
+		return
 	}
-	providers = strings.Split(foundProviders, ",")
-	if err == sql.ErrNoRows {
-		err = nil
+	err = stmt.Select(&providers, map[string]interface{}{
+		"address": address,
+	})
+	if err != nil {
+		return
+	}
+	if len(providers) > 0 {
+		anyProvider = true
 	}
 
 	return
@@ -109,4 +119,52 @@ func (d *Database) SaveAppearances(provider string, appearances []types.Appearan
 	}
 	err = dbTx.Commit()
 	return
+}
+
+type dbAppearance struct {
+	Address          string `db:"address"`
+	BlockNumber      int32  `db:"block_number"`
+	TransactionIndex int32  `db:"transaction_index"`
+}
+
+func (d *Database) AppearancesByProviders(providers []string) (appearances []types.Appearance, err error) {
+	args := make([]any, 0, len(providers)+1)
+	rawSql := `select
+		address,
+		block_number,
+		transaction_index
+		from view_appearances_with_providers
+		where exists (select 1 from json_each(providers) where value = ?`
+
+	for i := 0; i < len(providers); i++ {
+		if i > 0 {
+			rawSql += "or ?"
+		}
+		args = append(args, providers[i])
+	}
+	args = append(args, len(providers))
+
+	rawSql += `) and json_array_length(providers) = ?;`
+
+	log.Println(rawSql)
+	log.Println(args...)
+
+	raws := []dbAppearance{}
+	err = d.db.Select(
+		&raws,
+		rawSql,
+		args...,
+	)
+
+	for _, raw := range raws {
+		appearance := types.Appearance{
+			Address:          base.HexToAddress(raw.Address),
+			BlockNumber:      uint32(raw.BlockNumber),
+			TransactionIndex: uint32(raw.TransactionIndex),
+		}
+		appearances = append(appearances, appearance)
+	}
+
+	return
+
 }

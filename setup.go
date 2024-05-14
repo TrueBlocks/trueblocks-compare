@@ -28,6 +28,8 @@ type Comparison struct {
 	Providers []string
 
 	addressFilePath string
+	minAppearances  int
+	maxAppearances  int
 }
 
 func Setup() (c *Comparison) {
@@ -110,7 +112,7 @@ func (c *Comparison) DownloadAppearances() (err error) {
 		go func(provider string) {
 			for address := range channelByProvider[provider] {
 				opts := sdk.SlurpOptions{
-					Source: sdk.SSEtherscan,
+					Source: stringToSlurpSource(provider),
 					Addrs:  []string{address},
 					Types:  sdk.STAll,
 				}
