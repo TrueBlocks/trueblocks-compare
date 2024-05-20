@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS download_status (
 CREATE UNIQUE INDEX IF NOT EXISTS download_status_unique ON download_status (address, provider);
 
 CREATE TABLE IF NOT EXISTS appearances (
+	id INTEGER PRIMARY KEY,
 	address VARCHAR(42) NOT NULL,
 	block_number INT,
 	transaction_index INT,
@@ -14,6 +15,15 @@ CREATE TABLE IF NOT EXISTS appearances (
 );
 CREATE INDEX IF NOT EXISTS appearances_appearance ON appearances (address, block_number, transaction_index);
 CREATE INDEX IF NOT EXISTS appearances_provider ON appearances (provider);
+
+CREATE table if not EXISTS appearance_reasons (
+	appearance_id INTEGER NOT NULL,
+	provider TEXT,
+	reason TEXT,
+	comment TEXT,
+	foreign key(appearance_id) references appearances(id)
+);
+create index if not exists appearance_reasons_id ON appearance_reasons (appearance_id);
 
 CREATE TABLE IF NOT EXISTS incompatible_addresses (
 	address VARCHAR(42) NOT NULL,

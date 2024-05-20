@@ -4,6 +4,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -17,11 +18,11 @@ import (
 )
 
 var supportedProviders = []string{
-	"chifra",
+	// "chifra",
 	"key",
 	"etherscan",
-	// "covalent",
-	// "alchemy",
+	"covalent",
+	"alchemy",
 }
 
 type Comparison struct {
@@ -110,20 +111,19 @@ func stringToSlurpSource(name string) (source sdk.SlurpSource) {
 	return source
 }
 
-// type AppearancesByProvider struct {
-// 	Provider    string
-// 	Appearances []types.Appearance
-// }
-
 func (c *Comparison) DownloadAppearances() (err error) {
 	addressChan := make(chan string, 100)
 	filterByProvider := "key"
 	if slices.Contains(c.Providers, "chifra") {
 		filterByProvider = "chifra"
 	}
-	providers := slices.DeleteFunc(c.Providers, func(element string) bool {
-		return element == filterByProvider
-	})
+	log.Println("Filtering by", filterByProvider)
+	providers := make([]string, 0, len(c.Providers))
+	for _, provider := range c.Providers {
+		if provider != filterByProvider {
+			providers = append(providers, provider)
+		}
+	}
 
 	err = loadAddressesFromFile(c.addressFilePath, addressChan)
 	if err != nil {
@@ -155,12 +155,94 @@ func (c *Comparison) DownloadAppearances() (err error) {
 			if err != nil {
 				log.Fatalln("error downloading data from", provider, err)
 			}
+
+			for _, appearance := range appearances {
+				// ("chifra state --no_header --parts balance %d-%d %s --changes", app.BlockNumber-2, app.BlockNumber+7, line)
+				// stateOpts := sdk.StateOptions{
+				// 	Parts:   sdk.SPBalance,
+				// 	Changes: true,
+				// }
+				// state, _, err := stateOpts.State()
+				// if err != nil {
+				// 	return err
+				// }
+
+				transactionsOpts := sdk.TransactionsOptions{
+					TransactionIds: []string{
+						fmt.Sprintf("%d.%d", appearance.BlockNumber, appearance.TransactionIndex),
+					},
+				}
+				transactions, _, err := transactionsOpts.TransactionsUniq()
+				if err != nil {
+					return err
+				}
+				for _, uniqAppearance := range transactions {
+					if uniqAppearance.Address != appearance.Address {
+						continue
+					}
+					appearance.Reason = uniqAppearance.Reason
+				}
+			}
+
 			if err = c.Database.SaveAppearances(provider, appearances); err != nil {
+				return err
+			}
+			if err = c.Database.MarkAsDownloaded(address, provider); err != nil {
 				return err
 			}
 		}
 	}
 
+	return
+}
+
+type Result struct {
+	AddressCount      int
+	AppearancesBy     map[string]int
+	AppearancesOnlyBy map[string]int
+	AddressesBy       map[string]int
+	AddressesOnlyBy   map[string]int
+}
+
+func (c *Comparison) Results() (r *Result, err error) {
+	r = &Result{
+		AppearancesBy:     make(map[string]int, len(c.Providers)),
+		AddressesBy:       make(map[string]int, len(c.Providers)),
+		AppearancesOnlyBy: make(map[string]int, len(c.Providers)),
+		AddressesOnlyBy:   make(map[string]int, len(c.Providers)),
+	}
+	r.AddressCount, err = c.Database.AddressCount()
+	if err != nil {
+		return
+	}
+
+	for _, provider := range c.Providers {
+		var appearances []types.Appearance
+		// var addressCount int
+		appearances, err = c.Database.AppearancesHavingProvider(provider)
+		if err != nil {
+			return
+		}
+		r.AppearancesBy[provider] = len(appearances)
+
+		r.AddressesBy[provider], err = c.Database.AddressCountHavingProvider(provider)
+		if err != nil {
+			return
+		}
+		// r.AddressesBy[provider] = addressCount
+
+		appearances, err = c.Database.AppearancesByProviders([]string{provider})
+		if err != nil {
+			return
+		}
+		r.AppearancesOnlyBy[provider] = len(appearances)
+
+		r.AddressesOnlyBy[provider], err = c.Database.AddressCountByProviders([]string{provider})
+		if err != nil {
+			return
+		}
+		// r.AddressesOnlyBy[provider] = len(addressCount)
+	}
 	return
 }
 

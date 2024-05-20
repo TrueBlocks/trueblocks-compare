@@ -10,7 +10,7 @@
             "env": {},
             "cwd": "${workspaceFolder}/",
             "args": [
-                "--es_only"
+                "addresses.txt"
             ]
         }
     ]

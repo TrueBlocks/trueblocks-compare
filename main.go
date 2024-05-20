@@ -1,6 +1,9 @@
 package main
 
-import "log"
+import (
+	"fmt"
+	"log"
+)
 
 var min, max = 0, 5000
 
@@ -14,6 +17,19 @@ func main() {
 	comparison := Setup()
 	if err := comparison.DownloadAppearances(); err != nil {
 		log.Fatalln(err)
+	}
+
+	results, err := comparison.Results()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fmt.Printf("Addresses (count < %d):\t%d \n", comparison.maxAppearances, results.AddressCount)
+	for _, provider := range comparison.Providers {
+		fmt.Printf("Found by %s:\t%d addresses,\t%d appearances\n", provider, results.AddressesBy[provider], results.AppearancesBy[provider])
+	}
+	for _, provider := range comparison.Providers {
+		fmt.Printf("Found only by %s:\t%d addresses,\t %d appearances\n", provider, results.AddressesOnlyBy[provider], results.AppearancesOnlyBy[provider])
 	}
 
 	// downloadOpt := false
