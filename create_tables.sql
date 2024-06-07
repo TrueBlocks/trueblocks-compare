@@ -25,12 +25,20 @@ CREATE table if not EXISTS appearance_reasons (
 );
 create index if not exists appearance_reasons_id ON appearance_reasons (appearance_id);
 
+CREATE table if not EXISTS appearance_balance_changes (
+	appearance_id INTEGER NOT NULL,
+	balance_change BOOLEAN,
+	foreign key(appearance_id) references appearances(id)
+);
+create index if not exists appearance_balance_changes_id ON appearance_balance_changes (appearance_id);
+
 CREATE TABLE IF NOT EXISTS incompatible_addresses (
 	address VARCHAR(42) NOT NULL,
 	appearances INT
 );
 
-CREATE VIEW view_appearances_with_providers AS SELECT
+CREATE VIEW IF NOT EXISTS view_appearances_with_providers AS SELECT
+id,
 address,
 block_number,
 transaction_index,

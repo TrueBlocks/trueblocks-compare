@@ -116,30 +116,38 @@ func TestDatabase_Downloaded(t *testing.T) {
 	}
 }
 
-func TestDatabase_SaveAppearances(t *testing.T) {
+func TestDatabase_SaveAppearance(t *testing.T) {
 	d, cleanup := makeTestDatabase(t)
 	defer cleanup()
 
-	appearances := []types.Appearance{
+	appearances := []AppearanceData{
 		{
-			Address:          base.HexToAddress("0x0"),
-			BlockNumber:      1,
-			TransactionIndex: 1,
+			Appearance: types.Appearance{
+				Address:          base.HexToAddress("0x0"),
+				BlockNumber:      1,
+				TransactionIndex: 1,
+			},
 		},
 		{
-			Address:          base.HexToAddress("0x1"),
-			BlockNumber:      2,
-			TransactionIndex: 2,
+			Appearance: types.Appearance{
+				Address:          base.HexToAddress("0x1"),
+				BlockNumber:      2,
+				TransactionIndex: 2,
+			},
 		},
 		{
-			Address:          base.HexToAddress("0x2"),
-			BlockNumber:      3,
-			TransactionIndex: 3,
+			Appearance: types.Appearance{
+				Address:          base.HexToAddress("0x2"),
+				BlockNumber:      3,
+				TransactionIndex: 3,
+			},
 		},
 	}
 
-	if err := d.SaveAppearances("etherscan", appearances); err != nil {
-		t.Fatal(err)
+	for _, appearance := range appearances {
+		if err := d.SaveAppearance("etherscan", appearance); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	var count int
@@ -174,16 +182,16 @@ func TestDatabase_SelectByProviders(t *testing.T) {
 		},
 	}
 
-	if err := d.SaveAppearances("etherscan", []types.Appearance{appearances[0]}); err != nil {
+	if err := d.SaveAppearance("etherscan", AppearanceData{Appearance: appearances[0]}); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.SaveAppearances("etherscan", []types.Appearance{appearances[1]}); err != nil {
+	if err := d.SaveAppearance("etherscan", AppearanceData{Appearance: appearances[1]}); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.SaveAppearances("alchemy", []types.Appearance{appearances[1]}); err != nil {
+	if err := d.SaveAppearance("alchemy", AppearanceData{Appearance: appearances[1]}); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.SaveAppearances("key", []types.Appearance{appearances[1]}); err != nil {
+	if err := d.SaveAppearance("key", AppearanceData{Appearance: appearances[1]}); err != nil {
 		t.Fatal(err)
 	}
 

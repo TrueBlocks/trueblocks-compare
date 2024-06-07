@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"slices"
+	"strconv"
 	"strings"
 
 	sdk "github.com/TrueBlocks/trueblocks-core/sdk"
@@ -26,22 +27,23 @@ var supportedProviders = []string{
 }
 
 type Comparison struct {
-	Database  *Database
-	Providers []string
+	Database         *Database
+	DatabaseFileName string
+	Providers        []string
 
 	addressFilePath string
 	minAppearances  int
 	maxAppearances  int
 }
 
-func Setup() (c *Comparison) {
+func Setup(databaseFileName string) (c *Comparison) {
 	var err error
 	c = &Comparison{
 		addressFilePath: os.Args[1],
 		maxAppearances:  5000,
 	}
 
-	c.Database, err = NewDatabaseConnection(false)
+	c.Database, err = NewDatabaseConnection(false, databaseFileName)
 	if err != nil {
 		log.Fatalln("opening sqlite database:", err)
 	}
@@ -140,55 +142,99 @@ func (c *Comparison) DownloadAppearances() (err error) {
 			c.Database.SaveIncompatibleAddress(address, appearances)
 			continue
 		}
-		if err = c.Database.SaveAppearances(filterByProvider, appearances); err != nil {
-			return err
+		// toSave := make([]AppearanceData, 0, len(appearances))
+
+		for i := 0; i < len(appearances); i++ {
+			appData := AppearanceData{
+				// Appearance: types.Appearance{
+				// 	BlockNumber: appearances[i].BlockNumber,
+				// 	TransactionIndex: appearances[i].TransactionIndex,
+				// },
+			}
+			appData.Address = appearances[i].Address
+			appData.BlockNumber = appearances[i].BlockNumber
+			appData.TransactionIndex = appearances[i].TransactionIndex
+
+			transactionsOpts := sdk.TransactionsOptions{
+				TransactionIds: []string{
+					fmt.Sprintf("%d.%d", appearances[i].BlockNumber, appearances[i].TransactionIndex),
+				},
+			}
+			transactions, _, err := transactionsOpts.TransactionsUniq()
+			if err != nil {
+				return err
+			}
+			for _, uniqAppearance := range transactions {
+				if uniqAppearance.Address != appearances[i].Address {
+					continue
+				}
+
+				appData.Reason = uniqAppearance.Reason
+			}
+
+			// ("chifra state --no_header --parts balance %d-%d %s --changes", app.BlockNumber-2, app.BlockNumber+7, line)
+			stateOpts := sdk.StateOptions{
+				Addrs:   []string{appearances[i].Address.String()},
+				Parts:   sdk.SPBalance,
+				Changes: true,
+				BlockIds: []string{
+					strconv.FormatInt(int64(appearances[i].BlockNumber-2), 10),
+					strconv.FormatInt(int64(appearances[i].BlockNumber+7), 10),
+				},
+			}
+			state, _, err := stateOpts.State()
+			if err != nil {
+				return err
+			}
+			if len(state) > 1 {
+				// there was a balance change
+				appData.BalanceChange = true
+			}
+			// toSave = append(toSave, appData)
+			if err = c.Database.SaveAppearance(filterByProvider, appData); err != nil {
+				return err
+			}
 		}
+		// if err = c.Database.SaveAppearances(filterByProvider, toSave); err != nil {
+		// 	return err
+		// }
 
 		for _, provider := range providers {
 			log.Println("Downloading from", provider, "address", address)
-			opts := sdk.SlurpOptions{
-				Source: stringToSlurpSource(provider),
-				Addrs:  []string{address},
-				Types:  sdk.STAll,
-			}
-			appearances, _, err := opts.SlurpAppearances()
-			if err != nil {
-				log.Fatalln("error downloading data from", provider, err)
-			}
+			providerTypes := typesByProvider(provider)
+			for _, providerType := range providerTypes {
+				opts := sdk.SlurpOptions{
+					Source: stringToSlurpSource(provider),
+					Addrs:  []string{address},
+					Types:  providerType,
+				}
+				appearances, _, err := opts.SlurpAppearances()
+				if err != nil {
+					log.Fatalln("error downloading data from", provider, err)
+				}
+				// toSave := make([]AppearanceData, 0, len(appearances))
 
-			for _, appearance := range appearances {
-				// ("chifra state --no_header --parts balance %d-%d %s --changes", app.BlockNumber-2, app.BlockNumber+7, line)
-				// stateOpts := sdk.StateOptions{
-				// 	Parts:   sdk.SPBalance,
-				// 	Changes: true,
+				// for i := 0; i < len(appearances); i++ {
+				// 	appearances[i].Reason = providerType.String()
 				// }
-				// state, _, err := stateOpts.State()
-				// if err != nil {
+				for _, appearance := range appearances {
+					appData := AppearanceData{}
+					appData.Address = appearance.Address
+					appData.BlockNumber = appearance.BlockNumber
+					appData.TransactionIndex = appearance.TransactionIndex
+					appData.Reason = providerType.String()
+					// toSave = append(toSave, appData)
+					if err = c.Database.SaveAppearance(provider, appData); err != nil {
+						return err
+					}
+				}
+
+				// if err = c.Database.SaveAppearances(provider, toSave); err != nil {
 				// 	return err
 				// }
-
-				transactionsOpts := sdk.TransactionsOptions{
-					TransactionIds: []string{
-						fmt.Sprintf("%d.%d", appearance.BlockNumber, appearance.TransactionIndex),
-					},
-				}
-				transactions, _, err := transactionsOpts.TransactionsUniq()
-				if err != nil {
-					return err
-				}
-				for _, uniqAppearance := range transactions {
-					if uniqAppearance.Address != appearance.Address {
-						continue
-					}
-					appearance.Reason = uniqAppearance.Reason
-				}
-			}
-
-			if err = c.Database.SaveAppearances(provider, appearances); err != nil {
-				return err
-			}
-			if err = c.Database.MarkAsDownloaded(address, provider); err != nil {
-				return err
+				// if err = c.Database.MarkAsDownloaded(address, provider); err != nil {
+				// 	return err
+				// }
 			}
 		}
 	}
@@ -196,10 +242,28 @@ func (c *Comparison) DownloadAppearances() (err error) {
 	return
 }
 
+func typesByProvider(provider string) (slurpTypes []sdk.SlurpTypes) {
+	switch provider {
+	case "key", "covalent":
+		slurpTypes = []sdk.SlurpTypes{sdk.STAll}
+	case "etherscan":
+		slurpTypes = []sdk.SlurpTypes{
+			sdk.STExt, sdk.STInt, sdk.STToken, sdk.STNfts, sdk.ST1155, sdk.STMiner, sdk.STUncles, sdk.STWithdrawals,
+		}
+	case "alchemy":
+		slurpTypes = []sdk.SlurpTypes{
+			sdk.STExt, sdk.STInt, sdk.STToken, sdk.STNfts, sdk.ST1155,
+		}
+	}
+	return
+}
+
 type Result struct {
 	AddressCount      int
 	AppearancesBy     map[string]int
 	AppearancesOnlyBy map[string]int
+	GroupedReasons    map[string][]GroupedReasons
+	BalanceChanges    map[string]int
 	AddressesBy       map[string]int
 	AddressesOnlyBy   map[string]int
 }
@@ -209,6 +273,8 @@ func (c *Comparison) Results() (r *Result, err error) {
 		AppearancesBy:     make(map[string]int, len(c.Providers)),
 		AddressesBy:       make(map[string]int, len(c.Providers)),
 		AppearancesOnlyBy: make(map[string]int, len(c.Providers)),
+		GroupedReasons:    make(map[string][]GroupedReasons),
+		BalanceChanges:    make(map[string]int),
 		AddressesOnlyBy:   make(map[string]int, len(c.Providers)),
 	}
 	r.AddressCount, err = c.Database.AddressCount()
@@ -236,6 +302,18 @@ func (c *Comparison) Results() (r *Result, err error) {
 			return
 		}
 		r.AppearancesOnlyBy[provider] = len(appearances)
+
+		var groupedReasons []GroupedReasons
+		groupedReasons, err = c.Database.UniqueAppearancesGroupedReasons(provider)
+		if err != nil {
+			return
+		}
+		r.GroupedReasons[provider] = groupedReasons
+
+		r.BalanceChanges[provider], err = c.Database.AppearanceBalanceChangeCountOnlyByProvider(provider)
+		if err != nil {
+			return
+		}
 
 		r.AddressesOnlyBy[provider], err = c.Database.AddressCountByProviders([]string{provider})
 		if err != nil {

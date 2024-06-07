@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -20,12 +19,16 @@ type Database struct {
 	readOnly bool
 }
 
-func NewDatabaseConnection(override bool) (d *Database, err error) {
+func NewDatabaseConnection(override bool, fileName string) (d *Database, err error) {
 	d = &Database{}
-	if !override {
-		d.fileName = time.Now().Format(time.DateTime) + ".sqlite"
+	if fileName != "" {
+		d.fileName = fileName
 	} else {
-		d.fileName = defaultDatabaseFileName
+		if !override {
+			d.fileName = time.Now().Format(time.DateTime) + ".sqlite"
+		} else {
+			d.fileName = defaultDatabaseFileName
+		}
 	}
 	if err = d.openDatabase(); err != nil {
 		return
@@ -100,62 +103,132 @@ func (d *Database) Downloaded(address string) (providers []string, anyProvider b
 	return
 }
 
-func (d *Database) SaveAppearances(provider string, appearances []types.Appearance) (err error) {
-	// dbTx, err := d.db.Begin()
-	// if err != nil {
-	// 	return
-	// }
-	// for _, appearance := range appearances {
-	// 	_, err = dbTx.Exec(
-	// 		`insert into appearances values(@address, @blockNumber, @txIndex, @provider) returning id`,
-	// 		sql.Named("address", appearance.Address.String()),
-	// 		sql.Named("blockNumber", appearance.BlockNumber),
-	// 		sql.Named("txIndex", appearance.TransactionIndex),
-	// 		sql.Named("provider", provider),
-	// 	)
-	// 	if err != nil {
-	// 		return
-	// 	}
+type AppearanceData struct {
+	types.Appearance
+	BalanceChange bool
+}
 
-	// }
-	// err = dbTx.Commit()
-	// return
+// func (d *Database) SaveAppearances(provider string, appearances []AppearanceData) (err error) {
+// 	// dbTx, err := d.db.Begin()
+// 	// if err != nil {
+// 	// 	return
+// 	// }
+// 	// for _, appearance := range appearances {
+// 	// 	_, err = dbTx.Exec(
+// 	// 		`insert into appearances values(@address, @blockNumber, @txIndex, @provider) returning id`,
+// 	// 		sql.Named("address", appearance.Address.String()),
+// 	// 		sql.Named("blockNumber", appearance.BlockNumber),
+// 	// 		sql.Named("txIndex", appearance.TransactionIndex),
+// 	// 		sql.Named("provider", provider),
+// 	// 	)
+// 	// 	if err != nil {
+// 	// 		return
+// 	// 	}
 
-	// if err != nil {
-	// 	return
-	// }
-	for _, appearance := range appearances {
-		m := map[string]any{
-			"address":     appearance.Address.String(),
-			"blockNumber": appearance.BlockNumber,
-			"txIndex":     appearance.TransactionIndex,
-			"provider":    provider,
-		}
-		log.Println("inserting appearance", fmt.Sprintf("%+v", m))
-		rows, err := d.db.NamedQuery(
-			`insert into appearances(address, block_number, transaction_index, provider) values(:address, :blockNumber, :txIndex, :provider) returning id`,
-			m,
-		)
-		if err != nil {
-			return err
-		}
+// 	// }
+// 	// err = dbTx.Commit()
+// 	// return
 
-		log.Println("getting id")
-		var appearanceId int
-		if err := rows.Scan(&appearanceId); err != nil {
-			return err
-		}
-		log.Println("inserting reason")
+// 	// if err != nil {
+// 	// 	return
+// 	// }
+// 	for _, appearance := range appearances {
+// 		// m := map[string]any{
+// 		// 	"address":     appearance.Address.String(),
+// 		// 	"blockNumber": appearance.BlockNumber,
+// 		// 	"txIndex":     appearance.TransactionIndex,
+// 		// 	"provider":    provider,
+// 		// }
+// 		// rows, err := d.db.NamedQuery(
+// 		// 	`insert into appearances(address, block_number, transaction_index, provider) values(:address, :blockNumber, :txIndex, :provider) returning id`,
+// 		// 	m,
+// 		// )
+// 		// if err != nil {
+// 		// 	return err
+// 		// }
+
+// 		var appearanceId int
+// 		err := d.db.Get(
+// 			&appearanceId,
+// 			`insert into appearances(address, block_number, transaction_index, provider) values(?, ?, ?, ?) returning id`,
+// 			appearance.Address.String(),
+// 			appearance.BlockNumber,
+// 			appearance.TransactionIndex,
+// 			provider,
+// 		)
+// 		if err != nil {
+// 			return err
+// 		}
+
+// 		// log.Println("getting id")
+// 		// var appearanceId int
+// 		// if err := rows.Scan(&appearanceId); err != nil {
+// 		// 	return err
+// 		// }
+// 		_, err = d.db.NamedExec(
+// 			`insert into appearance_reasons(appearance_id, provider, reason) values(:id, :provider, :reason)`,
+// 			map[string]any{
+// 				"id":       appearanceId,
+// 				"provider": provider,
+// 				"reason":   appearance.Reason,
+// 			},
+// 		)
+// 		if err != nil {
+// 			return err
+// 		}
+
+// 		if appearance.BalanceChange {
+// 			_, err = d.db.NamedExec(
+// 				`insert into appearance_balance_changes values(:id, true)`,
+// 				map[string]any{
+// 					"id": appearanceId,
+// 				},
+// 			)
+// 			if err != nil {
+// 				return fmt.Errorf("inserting balance change: %w", err)
+// 			}
+// 		}
+// 	}
+
+// 	return
+// }
+
+func (d *Database) SaveAppearance(provider string, appearance AppearanceData) (err error) {
+
+	var appearanceId int
+	err = d.db.Get(
+		&appearanceId,
+		`insert into appearances(address, block_number, transaction_index, provider) values(?, ?, ?, ?) returning id`,
+		appearance.Address.String(),
+		appearance.BlockNumber,
+		appearance.TransactionIndex,
+		provider,
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.db.NamedExec(
+		`insert into appearance_reasons(appearance_id, provider, reason) values(:id, :provider, :reason)`,
+		map[string]any{
+			"id":       appearanceId,
+			"provider": provider,
+			"reason":   appearance.Reason,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	if appearance.BalanceChange {
 		_, err = d.db.NamedExec(
-			`insert into appearance_reasons(appearance_id, provider, reason) values(:id, :provider, :reason)`,
+			`insert into appearance_balance_changes values(:id, true)`,
 			map[string]any{
-				"appearance_id": appearanceId,
-				"provider":      provider,
-				"reason":        appearance.Reason,
+				"id": appearanceId,
 			},
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("inserting balance change: %w", err)
 		}
 	}
 
@@ -289,6 +362,72 @@ func (d *Database) AddressCountHavingProvider(provider string) (count int, err e
 			from
 			view_appearances_with_providers
 			where exists (select 1 from json_each(providers) where value = ?)
+		)`,
+		provider,
+	)
+
+	return
+}
+
+func (d *Database) AppearancesWithReasonOnlyByProvider(provider string) (apps []types.Appearance, err error) {
+	err = d.db.Select(
+		&apps,
+		`select
+		id,
+		address,
+		block_number,
+		transaction_index,
+		r.reason
+		from view_appearances_with_providers v
+		join appearance_reasons r on r.appearance_id = v.id
+		where exists (
+			select 1 from json_each(v.providers) where value = ? and json_array_length(v.providers) = 1
+		)`,
+		provider,
+	)
+
+	return
+}
+
+type GroupedReasons struct {
+	Reason string
+	Count  int
+}
+
+func (d *Database) UniqueAppearancesGroupedReasons(provider string) (groupedReasons []GroupedReasons, err error) {
+	err = d.db.Select(
+		&groupedReasons,
+		`select
+		reason,
+		count(*) as count
+		from (
+			select
+			id,
+			address,
+			block_number,
+			transaction_index,
+			r.reason
+			from view_appearances_with_providers v
+			join appearance_reasons r on r.appearance_id = v.id
+			where exists (
+				select 1 from json_each(v.providers) where value = ? and json_array_length(v.providers) = 1
+			)
+		) group by reason order by count`,
+		provider,
+	)
+
+	return
+}
+
+func (d *Database) AppearanceBalanceChangeCountOnlyByProvider(provider string) (count int, err error) {
+	err = d.db.Get(
+		&count,
+		`select
+		count(*) as count
+		from view_appearances_with_providers v
+		join appearance_balance_changes c on c.appearance_id = v.id
+		where exists (
+			select 1 from json_each(v.providers) where value = ? and json_array_length(v.providers) = 1
 		)`,
 		provider,
 	)
