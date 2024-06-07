@@ -16,7 +16,6 @@ const defaultDatabaseFileName = "database.sqlite"
 type Database struct {
 	db       *sqlx.DB
 	fileName string
-	readOnly bool
 }
 
 func NewDatabaseConnection(override bool, fileName string) (d *Database, err error) {
@@ -107,91 +106,6 @@ type AppearanceData struct {
 	types.Appearance
 	BalanceChange bool
 }
-
-// func (d *Database) SaveAppearances(provider string, appearances []AppearanceData) (err error) {
-// 	// dbTx, err := d.db.Begin()
-// 	// if err != nil {
-// 	// 	return
-// 	// }
-// 	// for _, appearance := range appearances {
-// 	// 	_, err = dbTx.Exec(
-// 	// 		`insert into appearances values(@address, @blockNumber, @txIndex, @provider) returning id`,
-// 	// 		sql.Named("address", appearance.Address.String()),
-// 	// 		sql.Named("blockNumber", appearance.BlockNumber),
-// 	// 		sql.Named("txIndex", appearance.TransactionIndex),
-// 	// 		sql.Named("provider", provider),
-// 	// 	)
-// 	// 	if err != nil {
-// 	// 		return
-// 	// 	}
-
-// 	// }
-// 	// err = dbTx.Commit()
-// 	// return
-
-// 	// if err != nil {
-// 	// 	return
-// 	// }
-// 	for _, appearance := range appearances {
-// 		// m := map[string]any{
-// 		// 	"address":     appearance.Address.String(),
-// 		// 	"blockNumber": appearance.BlockNumber,
-// 		// 	"txIndex":     appearance.TransactionIndex,
-// 		// 	"provider":    provider,
-// 		// }
-// 		// rows, err := d.db.NamedQuery(
-// 		// 	`insert into appearances(address, block_number, transaction_index, provider) values(:address, :blockNumber, :txIndex, :provider) returning id`,
-// 		// 	m,
-// 		// )
-// 		// if err != nil {
-// 		// 	return err
-// 		// }
-
-// 		var appearanceId int
-// 		err := d.db.Get(
-// 			&appearanceId,
-// 			`insert into appearances(address, block_number, transaction_index, provider) values(?, ?, ?, ?) returning id`,
-// 			appearance.Address.String(),
-// 			appearance.BlockNumber,
-// 			appearance.TransactionIndex,
-// 			provider,
-// 		)
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		// log.Println("getting id")
-// 		// var appearanceId int
-// 		// if err := rows.Scan(&appearanceId); err != nil {
-// 		// 	return err
-// 		// }
-// 		_, err = d.db.NamedExec(
-// 			`insert into appearance_reasons(appearance_id, provider, reason) values(:id, :provider, :reason)`,
-// 			map[string]any{
-// 				"id":       appearanceId,
-// 				"provider": provider,
-// 				"reason":   appearance.Reason,
-// 			},
-// 		)
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		if appearance.BalanceChange {
-// 			_, err = d.db.NamedExec(
-// 				`insert into appearance_balance_changes values(:id, true)`,
-// 				map[string]any{
-// 					"id": appearanceId,
-// 				},
-// 			)
-// 			if err != nil {
-// 				return fmt.Errorf("inserting balance change: %w", err)
-// 			}
-// 		}
-// 	}
-
-// 	return
-// }
 
 func (d *Database) SaveAppearance(provider string, appearance AppearanceData) (err error) {
 

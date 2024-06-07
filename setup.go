@@ -67,8 +67,6 @@ func (c *Comparison) detectProviders(chain string) {
 	for _, providerName := range supportedProviders {
 		switch providerName {
 		case "chifra":
-			// statusOpts := &sdk.StatusOptions{}
-			// _, _, err := statusOpts.StatusDiagnose()
 			_, err := exec.LookPath("chifra")
 			if err == nil {
 				detected = append(detected, "chifra")
@@ -139,65 +137,32 @@ func (c *Comparison) DownloadAppearances() (err error) {
 		}
 		if !ok {
 			log.Println("Address", address, "is incompatible")
-			c.Database.SaveIncompatibleAddress(address, appearances)
+			_ = c.Database.SaveIncompatibleAddress(address, appearances)
 			continue
 		}
-		// toSave := make([]AppearanceData, 0, len(appearances))
 
-		for i := 0; i < len(appearances); i++ {
-			appData := AppearanceData{
-				// Appearance: types.Appearance{
-				// 	BlockNumber: appearances[i].BlockNumber,
-				// 	TransactionIndex: appearances[i].TransactionIndex,
-				// },
-			}
-			appData.Address = appearances[i].Address
-			appData.BlockNumber = appearances[i].BlockNumber
-			appData.TransactionIndex = appearances[i].TransactionIndex
+		for _, appearance := range appearances {
+			appData := AppearanceData{}
+			appData.Address = appearance.Address
+			appData.BlockNumber = appearance.BlockNumber
+			appData.TransactionIndex = appearance.TransactionIndex
 
-			transactionsOpts := sdk.TransactionsOptions{
-				TransactionIds: []string{
-					fmt.Sprintf("%d.%d", appearances[i].BlockNumber, appearances[i].TransactionIndex),
-				},
-			}
-			transactions, _, err := transactionsOpts.TransactionsUniq()
+			// Get reason (where has chifra found the appearance)
+			appData.Reason, err = getChifraReason(&appearance)
 			if err != nil {
 				return err
 			}
-			for _, uniqAppearance := range transactions {
-				if uniqAppearance.Address != appearances[i].Address {
-					continue
-				}
 
-				appData.Reason = uniqAppearance.Reason
-			}
-
-			// ("chifra state --no_header --parts balance %d-%d %s --changes", app.BlockNumber-2, app.BlockNumber+7, line)
-			stateOpts := sdk.StateOptions{
-				Addrs:   []string{appearances[i].Address.String()},
-				Parts:   sdk.SPBalance,
-				Changes: true,
-				BlockIds: []string{
-					strconv.FormatInt(int64(appearances[i].BlockNumber-2), 10),
-					strconv.FormatInt(int64(appearances[i].BlockNumber+7), 10),
-				},
-			}
-			state, _, err := stateOpts.State()
+			// Check if there was a balance change
+			appData.BalanceChange, err = getChifraBalanceChange(&appearance)
 			if err != nil {
 				return err
 			}
-			if len(state) > 1 {
-				// there was a balance change
-				appData.BalanceChange = true
-			}
-			// toSave = append(toSave, appData)
+
 			if err = c.Database.SaveAppearance(filterByProvider, appData); err != nil {
 				return err
 			}
 		}
-		// if err = c.Database.SaveAppearances(filterByProvider, toSave); err != nil {
-		// 	return err
-		// }
 
 		for _, provider := range providers {
 			log.Println("Downloading from", provider, "address", address)
@@ -212,29 +177,17 @@ func (c *Comparison) DownloadAppearances() (err error) {
 				if err != nil {
 					log.Fatalln("error downloading data from", provider, err)
 				}
-				// toSave := make([]AppearanceData, 0, len(appearances))
-
-				// for i := 0; i < len(appearances); i++ {
-				// 	appearances[i].Reason = providerType.String()
-				// }
 				for _, appearance := range appearances {
 					appData := AppearanceData{}
 					appData.Address = appearance.Address
 					appData.BlockNumber = appearance.BlockNumber
 					appData.TransactionIndex = appearance.TransactionIndex
 					appData.Reason = providerType.String()
-					// toSave = append(toSave, appData)
+
 					if err = c.Database.SaveAppearance(provider, appData); err != nil {
 						return err
 					}
 				}
-
-				// if err = c.Database.SaveAppearances(provider, toSave); err != nil {
-				// 	return err
-				// }
-				// if err = c.Database.MarkAsDownloaded(address, provider); err != nil {
-				// 	return err
-				// }
 			}
 		}
 	}
@@ -258,14 +211,47 @@ func typesByProvider(provider string) (slurpTypes []sdk.SlurpTypes) {
 	return
 }
 
-type Result struct {
-	AddressCount      int
-	AppearancesBy     map[string]int
-	AppearancesOnlyBy map[string]int
-	GroupedReasons    map[string][]GroupedReasons
-	BalanceChanges    map[string]int
-	AddressesBy       map[string]int
-	AddressesOnlyBy   map[string]int
+func getChifraReason(appearance *types.Appearance) (reason string, err error) {
+	transactionsOpts := sdk.TransactionsOptions{
+		TransactionIds: []string{
+			fmt.Sprintf("%d.%d", appearance.BlockNumber, appearance.TransactionIndex),
+		},
+	}
+	// Get reason
+	uniqTransactions, _, err := transactionsOpts.TransactionsUniq()
+	if err != nil {
+		return
+	}
+	for _, transaction := range uniqTransactions {
+		if transaction.Address != appearance.Address {
+			continue
+		}
+
+		reason = transaction.Reason
+	}
+
+	return
+}
+
+func getChifraBalanceChange(appearance *types.Appearance) (balanceChange bool, err error) {
+	stateOpts := sdk.StateOptions{
+		Addrs:   []string{appearance.Address.String()},
+		Parts:   sdk.SPBalance,
+		Changes: true,
+		BlockIds: []string{
+			strconv.FormatInt(int64(appearance.BlockNumber-2), 10),
+			strconv.FormatInt(int64(appearance.BlockNumber+7), 10),
+		},
+	}
+	state, _, err := stateOpts.State()
+	if err != nil {
+		return
+	}
+	if len(state) > 1 {
+		// there was a balance change
+		balanceChange = true
+	}
+	return
 }
 
 func (c *Comparison) Results() (r *Result, err error) {
@@ -276,6 +262,7 @@ func (c *Comparison) Results() (r *Result, err error) {
 		GroupedReasons:    make(map[string][]GroupedReasons),
 		BalanceChanges:    make(map[string]int),
 		AddressesOnlyBy:   make(map[string]int, len(c.Providers)),
+		providers:         c.Providers,
 	}
 	r.AddressCount, err = c.Database.AddressCount()
 	if err != nil {
@@ -295,7 +282,6 @@ func (c *Comparison) Results() (r *Result, err error) {
 		if err != nil {
 			return
 		}
-		// r.AddressesBy[provider] = addressCount
 
 		appearances, err = c.Database.AppearancesByProviders([]string{provider})
 		if err != nil {
@@ -319,7 +305,6 @@ func (c *Comparison) Results() (r *Result, err error) {
 		if err != nil {
 			return
 		}
-		// r.AddressesOnlyBy[provider] = len(addressCount)
 	}
 	return
 }
