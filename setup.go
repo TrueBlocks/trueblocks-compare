@@ -36,14 +36,14 @@ type Comparison struct {
 	maxAppearances  int
 }
 
-func Setup(databaseFileName string) (c *Comparison) {
+func Setup(addressFile string, dataDir string, databaseFileName string) (c *Comparison) {
 	var err error
 	c = &Comparison{
-		addressFilePath: os.Args[1],
+		addressFilePath: addressFile,
 		maxAppearances:  5000,
 	}
 
-	c.Database, err = NewDatabaseConnection(false, databaseFileName)
+	c.Database, err = NewDatabaseConnection(false, dataDir, databaseFileName)
 	if err != nil {
 		log.Fatalln("opening sqlite database:", err)
 	}

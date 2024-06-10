@@ -8,19 +8,17 @@ import (
 
 var min, max = 0, 5000
 
-var reuseDatabase bool
+var addressFilePath string
+var reuseDatabaseFile string
 var dbFileName string
+var dataDir string
 
 func init() {
-	flag.BoolVar(&reuseDatabase, "reuse", false, "reuse database")
+	flag.StringVar(&reuseDatabaseFile, "reuse", "", "reuse database")
+	flag.StringVar(&dataDir, "datadir", "", "directory to save the database to")
 	flag.Parse()
 
-	if reuseDatabase {
-		if flag.Arg(0) == "" {
-			log.Fatalln("--reuse requires database file name")
-		}
-		dbFileName = flag.Arg(0)
-	}
+	addressFilePath = flag.Arg(0)
 }
 
 func main() {
@@ -30,8 +28,8 @@ func main() {
 	// Results
 	// Report
 
-	comparison := Setup(dbFileName)
-	if !reuseDatabase {
+	comparison := Setup(addressFilePath, dataDir, dbFileName)
+	if reuseDatabaseFile == "" {
 		if err := comparison.DownloadAppearances(); err != nil {
 			log.Fatalln(err)
 		}

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path"
 	"time"
 
 	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/base"
@@ -18,7 +19,7 @@ type Database struct {
 	fileName string
 }
 
-func NewDatabaseConnection(override bool, fileName string) (d *Database, err error) {
+func NewDatabaseConnection(override bool, dataDir string, fileName string) (d *Database, err error) {
 	d = &Database{}
 	if fileName != "" {
 		d.fileName = fileName
@@ -28,6 +29,9 @@ func NewDatabaseConnection(override bool, fileName string) (d *Database, err err
 		} else {
 			d.fileName = defaultDatabaseFileName
 		}
+	}
+	if dataDir != "" {
+		d.fileName = path.Join(dataDir, d.fileName)
 	}
 	if err = d.openDatabase(); err != nil {
 		return
