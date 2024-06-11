@@ -72,6 +72,8 @@ github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAE
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
 github.com/TrueBlocks/trueblocks-core/sdk v0.0.0-20240509025110-b78f72cbbb2a h1:LIqth+0k3+3TDYpoUIyfm/dGgHVMc7Lj4eGC40MBcVE=
 github.com/TrueBlocks/trueblocks-core/sdk v0.0.0-20240509025110-b78f72cbbb2a/go.mod h1:0t7Y2HOFOzxgbIwDOBQ3W493gVbJCuXbSaWFyCN+hRQ=
+github.com/TrueBlocks/trueblocks-core/sdk/v3 v3.0.0-20240611092421-6614c66ea46d h1:BpXeucq3fDAzcF1Y4T+ZJS4bts2FGZcOJQMuWwrIA3w=
+github.com/TrueBlocks/trueblocks-core/sdk/v3 v3.0.0-20240611092421-6614c66ea46d/go.mod h1:CsWKiF1CBCzNG+TxVFYYnIFipA5tOzoXKeKePyDz47A=
 github.com/TrueBlocks/trueblocks-core/src/apps/chifra v0.0.0-20231206013242-fed62c3d57c1 h1:aS6ePjHFtMu0aHzI9zkyw4iISFoJDuGlmWTGa+kAdFw=
 github.com/TrueBlocks/trueblocks-core/src/apps/chifra v0.0.0-20231206013242-fed62c3d57c1/go.mod h1:hpV771rAhdChKEKS+kviZPP+34GppNVWSx1zexvmRAc=
 github.com/TrueBlocks/trueblocks-core/src/apps/chifra v0.0.0-20240509025110-b78f72cbbb2a h1:wREkcWzRQPXqyVcw7rqG2eMT80sqPXQKW7HE8ksTIZQ=

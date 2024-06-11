@@ -9,7 +9,7 @@ require github.com/TrueBlocks/trueblocks-core/src/apps/chifra v0.0.0-20240611092
 require (
 	github.com/BurntSushi/toml v1.3.2 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
-	github.com/TrueBlocks/trueblocks-core/sdk v0.0.0-20240509025110-b78f72cbbb2a // indirect
+	github.com/TrueBlocks/trueblocks-core/sdk/v3 v3.0.0-20240611092421-6614c66ea46d // indirect
 	github.com/alecthomas/participle/v2 v2.0.0 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect

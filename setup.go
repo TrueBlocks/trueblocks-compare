@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	sdk "github.com/TrueBlocks/trueblocks-core/sdk"
+	sdk "github.com/TrueBlocks/trueblocks-core/sdk/v3"
 	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/config"
 	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/types"
 )
@@ -174,7 +174,7 @@ func (c *Comparison) DownloadAppearances() (err error) {
 				opts := sdk.SlurpOptions{
 					Source: stringToSlurpSource(provider),
 					Addrs:  []string{address},
-					Types:  providerType,
+					Parts:  providerType,
 				}
 				appearances, _, err := opts.SlurpAppearances()
 				if err != nil {
@@ -198,17 +198,17 @@ func (c *Comparison) DownloadAppearances() (err error) {
 	return
 }
 
-func typesByProvider(provider string) (slurpTypes []sdk.SlurpTypes) {
+func typesByProvider(provider string) (slurpTypes []sdk.SlurpParts) {
 	switch provider {
 	case "key", "covalent":
-		slurpTypes = []sdk.SlurpTypes{sdk.STAll}
+		slurpTypes = []sdk.SlurpParts{sdk.SLPAll}
 	case "etherscan":
-		slurpTypes = []sdk.SlurpTypes{
-			sdk.STExt, sdk.STInt, sdk.STToken, sdk.STNfts, sdk.ST1155, sdk.STMiner, sdk.STUncles, sdk.STWithdrawals,
+		slurpTypes = []sdk.SlurpParts{
+			sdk.SPExt, sdk.SPInt, sdk.SPToken, sdk.SPNfts, sdk.SP1155, sdk.SPMiner, sdk.SPUncles, sdk.SPWithdrawals,
 		}
 	case "alchemy":
-		slurpTypes = []sdk.SlurpTypes{
-			sdk.STExt, sdk.STInt, sdk.STToken, sdk.STNfts, sdk.ST1155,
+		slurpTypes = []sdk.SlurpParts{
+			sdk.SPExt, sdk.SPInt, sdk.SPToken, sdk.SPNfts, sdk.SP1155,
 		}
 	}
 	return
@@ -323,7 +323,7 @@ func (c *Comparison) checkAddress(provider string, address string) (appearances 
 		opts := sdk.SlurpOptions{
 			Source: stringToSlurpSource(provider),
 			Addrs:  []string{address},
-			Types:  sdk.STAll,
+			Parts:  sdk.SLPAll,
 		}
 		appearances, _, err = opts.SlurpAppearances()
 	}
