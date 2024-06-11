@@ -125,12 +125,15 @@ func (c *Comparison) DownloadAppearances() (err error) {
 		}
 	}
 
-	err = loadAddressesFromFile(c.addressFilePath, addressChan)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	go func() {
+		err = loadAddressesFromFile(c.addressFilePath, addressChan)
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}()
 
 	for address := range addressChan {
+		log.Println(address)
 		appearances, ok, err := c.checkAddress(filterByProvider, address)
 		if err != nil {
 			return err
