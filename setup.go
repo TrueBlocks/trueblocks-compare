@@ -36,11 +36,13 @@ type Comparison struct {
 	maxAppearances  int
 }
 
+// Setup initializes database connection and detects providers
 func Setup(addressFile string, dataDir string, databaseFileName string) (c *Comparison) {
 	var err error
 	c = &Comparison{
 		addressFilePath: addressFile,
-		maxAppearances:  5000,
+		minAppearances:  minAppearances,
+		maxAppearances:  maxAppearances,
 	}
 
 	c.Database, err = NewDatabaseConnection(false, dataDir, databaseFileName)
@@ -94,6 +96,8 @@ func (c *Comparison) detectProviders(chain string) {
 	c.Providers = detected
 }
 
+// stringToSlurpSource translates provider name to TrueBlocks SDK provider ID
+// (--source value when using chifra slurp on the command line)
 func stringToSlurpSource(name string) (source sdk.SlurpSource) {
 	switch name {
 	case "etherscan":
@@ -111,7 +115,11 @@ func stringToSlurpSource(name string) (source sdk.SlurpSource) {
 	return source
 }
 
+// DownloadAppearances downloads data from all providers and stores appearances
+// in the database
 func (c *Comparison) DownloadAppearances() (err error) {
+	// First we need to filter addresses with too few and too many appearances out
+
 	addressChan := make(chan string, 100)
 	filterByProvider := "key"
 	if slices.Contains(c.Providers, "chifra") {
@@ -139,11 +147,14 @@ func (c *Comparison) DownloadAppearances() (err error) {
 			return err
 		}
 		if !ok {
+			// Incompatible addresses are saved
 			log.Println("Address", address, "is incompatible")
 			_ = c.Database.SaveIncompatibleAddress(address, appearances)
 			continue
 		}
 
+		// Since we had to fetch appearances from the filtering provider
+		// (either chifra or Key), we will save them
 		for _, appearance := range appearances {
 			appData := AppearanceData{}
 			appData.Address = appearance.Address
@@ -167,6 +178,7 @@ func (c *Comparison) DownloadAppearances() (err error) {
 			}
 		}
 
+		// Now we download the data from the other providers
 		for _, provider := range providers {
 			log.Println("Downloading from", provider, "address", address)
 			providerTypes := typesByProvider(provider)
@@ -198,6 +210,8 @@ func (c *Comparison) DownloadAppearances() (err error) {
 	return
 }
 
+// typesByProvider returns slice of sdk.SlurpParts that are supported by
+// the given provider
 func typesByProvider(provider string) (slurpTypes []sdk.SlurpParts) {
 	switch provider {
 	case "key", "covalent":
@@ -214,6 +228,7 @@ func typesByProvider(provider string) (slurpTypes []sdk.SlurpParts) {
 	return
 }
 
+// getChifraReason tells us where chifra has found the appearance (e.g. logs, from, etc.)
 func getChifraReason(appearance *types.Appearance) (reason string, err error) {
 	transactionsOpts := sdk.TransactionsOptions{
 		TransactionIds: []string{
@@ -236,12 +251,14 @@ func getChifraReason(appearance *types.Appearance) (reason string, err error) {
 	return
 }
 
+// getChifraBalanceChange returns true if the balance has changed
 func getChifraBalanceChange(appearance *types.Appearance) (balanceChange bool, err error) {
 	stateOpts := sdk.StateOptions{
 		Addrs:   []string{appearance.Address.String()},
 		Parts:   sdk.SPBalance,
 		Changes: true,
 		BlockIds: []string{
+			// Range big enough to capture balance change caused by mining rewards
 			strconv.FormatInt(int64(appearance.BlockNumber-2), 10),
 			strconv.FormatInt(int64(appearance.BlockNumber+7), 10),
 		},
@@ -250,68 +267,12 @@ func getChifraBalanceChange(appearance *types.Appearance) (balanceChange bool, e
 	if err != nil {
 		return
 	}
-	if len(state) > 1 {
-		// there was a balance change
-		balanceChange = true
-	}
+	// there was a balance change
+	balanceChange = len(state) > 1
 	return
 }
 
-func (c *Comparison) Results() (r *Result, err error) {
-	r = &Result{
-		AppearancesBy:     make(map[string]int, len(c.Providers)),
-		AddressesBy:       make(map[string]int, len(c.Providers)),
-		AppearancesOnlyBy: make(map[string]int, len(c.Providers)),
-		GroupedReasons:    make(map[string][]GroupedReasons),
-		BalanceChanges:    make(map[string]int),
-		AddressesOnlyBy:   make(map[string]int, len(c.Providers)),
-		providers:         c.Providers,
-	}
-	r.AddressCount, err = c.Database.AddressCount()
-	if err != nil {
-		return
-	}
-
-	for _, provider := range c.Providers {
-		var appearances []types.Appearance
-		// var addressCount int
-		appearances, err = c.Database.AppearancesHavingProvider(provider)
-		if err != nil {
-			return
-		}
-		r.AppearancesBy[provider] = len(appearances)
-
-		r.AddressesBy[provider], err = c.Database.AddressCountHavingProvider(provider)
-		if err != nil {
-			return
-		}
-
-		appearances, err = c.Database.AppearancesByProviders([]string{provider})
-		if err != nil {
-			return
-		}
-		r.AppearancesOnlyBy[provider] = len(appearances)
-
-		var groupedReasons []GroupedReasons
-		groupedReasons, err = c.Database.UniqueAppearancesGroupedReasons(provider)
-		if err != nil {
-			return
-		}
-		r.GroupedReasons[provider] = groupedReasons
-
-		r.BalanceChanges[provider], err = c.Database.AppearanceBalanceChangeCountOnlyByProvider(provider)
-		if err != nil {
-			return
-		}
-
-		r.AddressesOnlyBy[provider], err = c.Database.AddressCountByProviders([]string{provider})
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-
+// checkAddress checks if the address appearance count doesn't exceed the limits
 func (c *Comparison) checkAddress(provider string, address string) (appearances []types.Appearance, ok bool, err error) {
 	if provider == "chifra" {
 		listOpts := &sdk.ListOptions{
@@ -362,5 +323,68 @@ func loadAddressesFromFile(filePath string, addressChan chan string) (err error)
 		addressChan <- sanitized
 	}
 
+	return
+}
+
+func (c *Comparison) Results() (r *Result, err error) {
+	r = &Result{
+		// Number of addresses found by the provider
+		AddressesBy: make(map[string]int, len(c.Providers)),
+		// Number of appearances found by the provider
+		AppearancesBy: make(map[string]int, len(c.Providers)),
+		// Number of addresses found ONLY by the provider
+		UniqueAddressesBy: make(map[string]int, len(c.Providers)),
+		// Number of appearances found ONLY by the provider
+		UniqueAppearancesBy: make(map[string]int, len(c.Providers)),
+		// Where did it find them?
+		GroupedReasonsBy: make(map[string][]GroupedReasons),
+		// Number of appearances involving balance change
+		BalanceChangesBy: make(map[string]int),
+
+		providers: c.Providers,
+	}
+	r.AddressCountTotal, err = c.Database.AddressCountTotal()
+	if err != nil {
+		err = fmt.Errorf("getting total appearance count: %w", err)
+		return
+	}
+
+	for _, provider := range c.Providers {
+		r.AppearancesBy[provider], err = c.Database.AppearanceCount(provider)
+		if err != nil {
+			err = fmt.Errorf("getting appearance count: %w", err)
+			return
+		}
+
+		r.AddressesBy[provider], err = c.Database.AddressCount(provider)
+		if err != nil {
+			err = fmt.Errorf("getting address count: %w", err)
+			return
+		}
+
+		r.UniqueAppearancesBy[provider], err = c.Database.UniqueAppearanceCount(provider)
+		if err != nil {
+			err = fmt.Errorf("getting unique appearance count: %w", err)
+			return
+		}
+
+		r.GroupedReasonsBy[provider], err = c.Database.UniqueAppearancesGroupedReasons(provider)
+		if err != nil {
+			err = fmt.Errorf("getting grouped reasons: %w", err)
+			return
+		}
+
+		r.BalanceChangesBy[provider], err = c.Database.BalanceChangeCount(provider)
+		if err != nil {
+			err = fmt.Errorf("getting balance change: %w", err)
+			return
+		}
+
+		r.UniqueAddressesBy[provider], err = c.Database.UniqueAddressCount(provider)
+		if err != nil {
+			err = fmt.Errorf("getting unique address count: %w", err)
+			return
+		}
+	}
 	return
 }

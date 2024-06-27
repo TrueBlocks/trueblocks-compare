@@ -6,7 +6,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/base"
 	"github.com/TrueBlocks/trueblocks-core/src/apps/chifra/pkg/types"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
@@ -62,7 +61,7 @@ func (d *Database) Close() error {
 
 func (d *Database) MarkAsDownloaded(address string, provider string) (err error) {
 	_, err = d.db.NamedExec(
-		"insert into download_status values(:address, :provider)",
+		"INSERT INTO download_status VALUES(:address, :provider)",
 		map[string]interface{}{
 			"address":  address,
 			"provider": provider,
@@ -71,26 +70,11 @@ func (d *Database) MarkAsDownloaded(address string, provider string) (err error)
 	return
 }
 
-// func (d *Database) Downloaded(address string, provider string) (downloaded bool, err error) {
-// 	err = d.db.QueryRow(
-// 		`select case when exists (
-// 			select * from download_status where address = @address and provider = @provider
-// 		) then 'TRUE' else 'FALSE' end;`,
-// 		sql.Named("address", address),
-// 		sql.Named("provider", provider),
-// 	).Scan(&downloaded)
-
-// 	return
-// }
-
 func (d *Database) Downloaded(address string) (providers []string, anyProvider bool, err error) {
 	stmt, err := d.db.PrepareNamed(
-		`select provider from download_status where address = :address`,
+		`SELECT provider FROM download_status WHERE address = :address`,
 	)
 	if err != nil {
-		// if err == sql.ErrNoRows {
-		// 	err = nil
-		// }
 		return
 	}
 	err = stmt.Select(&providers, map[string]interface{}{
@@ -116,7 +100,7 @@ func (d *Database) SaveAppearance(provider string, appearance AppearanceData) (e
 	var appearanceId int
 	err = d.db.Get(
 		&appearanceId,
-		`insert into appearances(address, block_number, transaction_index, provider) values(?, ?, ?, ?) returning id`,
+		`INSERT INTO appearances(address, block_number, transaction_index, provider) VALUES(?, ?, ?, ?) RETURNING id`,
 		appearance.Address.String(),
 		appearance.BlockNumber,
 		appearance.TransactionIndex,
@@ -127,7 +111,7 @@ func (d *Database) SaveAppearance(provider string, appearance AppearanceData) (e
 	}
 
 	_, err = d.db.NamedExec(
-		`insert into appearance_reasons(appearance_id, provider, reason) values(:id, :provider, :reason)`,
+		`INSERT INTO appearance_reasons(appearance_id, provider, reason) VALUES(:id, :provider, :reason)`,
 		map[string]any{
 			"id":       appearanceId,
 			"provider": provider,
@@ -140,7 +124,7 @@ func (d *Database) SaveAppearance(provider string, appearance AppearanceData) (e
 
 	if appearance.BalanceChange {
 		_, err = d.db.NamedExec(
-			`insert into appearance_balance_changes values(:id, true)`,
+			`INSERT INTO appearance_balance_changes VALUES(:id, true)`,
 			map[string]any{
 				"id": appearanceId,
 			},
@@ -155,7 +139,7 @@ func (d *Database) SaveAppearance(provider string, appearance AppearanceData) (e
 
 func (d *Database) SaveIncompatibleAddress(address string, appearances []types.Appearance) (err error) {
 	_, err = d.db.NamedExec(
-		`insert into incompatible_addresses values(:address, :appearanceCount)`,
+		`INSERT INTO incompatible_addresses VALUES(:address, :appearanceCount)`,
 		map[string]any{
 			"address":         address,
 			"appearanceCount": len(appearances),
@@ -164,122 +148,47 @@ func (d *Database) SaveIncompatibleAddress(address string, appearances []types.A
 	return
 }
 
-type dbAppearance struct {
-	Address          string `db:"address"`
-	BlockNumber      int32  `db:"block_number"`
-	TransactionIndex int32  `db:"transaction_index"`
-}
-
-func (d *Database) AppearancesByProviders(providers []string) (appearances []types.Appearance, err error) {
-	args := make([]any, 0, len(providers)+1)
-	rawSql := `select
-		address,
-		block_number,
-		transaction_index
-		from view_appearances_with_providers
-		where exists (select 1 from json_each(providers) where value = ?`
-
-	for i := 0; i < len(providers); i++ {
-		if i > 0 {
-			rawSql += "or ?"
-		}
-		args = append(args, providers[i])
-	}
-	args = append(args, len(providers))
-
-	rawSql += ` and json_array_length(providers) = ?);`
-
-	raws := []dbAppearance{}
-	err = d.db.Select(
-		&raws,
-		rawSql,
-		args...,
-	)
-
-	for _, raw := range raws {
-		appearance := types.Appearance{
-			Address:          base.HexToAddress(raw.Address),
-			BlockNumber:      uint32(raw.BlockNumber),
-			TransactionIndex: uint32(raw.TransactionIndex),
-		}
-		appearances = append(appearances, appearance)
-	}
-
-	return
-}
-
-func (d *Database) AppearancesHavingProvider(provider string) (appearances []types.Appearance, err error) {
-	raws := []dbAppearance{}
-	err = d.db.Select(
-		&raws,
-		`select
-		address,
-		block_number,
-		transaction_index
-		from view_appearances_with_providers
-		where exists (select 1 from json_each(providers) where value = ?)`,
+func (d *Database) UniqueAppearanceCount(provider string) (count int, err error) {
+	err = d.db.Get(
+		&count,
+		`SELECT
+		count(*)
+		FROM view_appearances_with_providers
+		WHERE EXISTS (SELECT 1 FROM json_each(providers) WHERE value = ? AND json_array_length(providers) = 1)`,
 		provider,
 	)
-	if err != nil {
-		return
-	}
 
-	for _, dbApp := range raws {
-		appearances = append(appearances, types.Appearance{
-			Address:          base.HexToAddress(dbApp.Address),
-			BlockNumber:      uint32(dbApp.BlockNumber),
-			TransactionIndex: uint32(dbApp.TransactionIndex),
-		})
-	}
 	return
 }
 
-func (d *Database) AddressCount() (count int, err error) {
+func (d *Database) AppearanceCount(provider string) (count int, err error) {
+	err = d.db.Get(
+		&count,
+		`SELECT
+		count(*)
+		FROM view_appearances_with_providers
+		WHERE EXISTS (SELECT 1 FROM json_each(providers) WHERE value = ?)`,
+		provider,
+	)
+	return
+}
+
+func (d *Database) AddressCountTotal() (count int, err error) {
 	err = d.db.Get(&count, `SELECT count(*) FROM (SELECT DISTINCT address FROM appearances)`)
 	return
 }
 
-func (d *Database) AddressCountByProviders(providers []string) (count int, err error) {
-	args := make([]any, 0, len(providers)+1)
-	rawSql := `select
-		count(*)
-		from (
-			select distinct
-			address
-			from
-			view_appearances_with_providers
-			where exists (select 1 from json_each(providers) where value = ?`
-
-	for i := 0; i < len(providers); i++ {
-		if i > 0 {
-			rawSql += "or ?"
-		}
-		args = append(args, providers[i])
-	}
-	args = append(args, len(providers))
-
-	rawSql += ` and json_array_length(providers) = ?));`
-
+func (d *Database) UniqueAddressCount(provider string) (count int, err error) {
 	err = d.db.Get(
 		&count,
-		rawSql,
-		args...,
-	)
-
-	return
-}
-
-func (d *Database) AddressCountHavingProvider(provider string) (count int, err error) {
-	err = d.db.Get(
-		&count,
-		`select
+		`SELECT
 		count(*)
-		from (
-			select distinct
+		FROM (
+			SELECT DISTINCT
 			address
-			from
+			FROM
 			view_appearances_with_providers
-			where exists (select 1 from json_each(providers) where value = ?)
+			WHERE EXISTS (SELECT 1 FROM json_each(providers) WHERE value = ? AND json_array_length(providers) = 1)
 		)`,
 		provider,
 	)
@@ -287,19 +196,17 @@ func (d *Database) AddressCountHavingProvider(provider string) (count int, err e
 	return
 }
 
-func (d *Database) AppearancesWithReasonOnlyByProvider(provider string) (apps []types.Appearance, err error) {
-	err = d.db.Select(
-		&apps,
-		`select
-		id,
-		address,
-		block_number,
-		transaction_index,
-		r.reason
-		from view_appearances_with_providers v
-		join appearance_reasons r on r.appearance_id = v.id
-		where exists (
-			select 1 from json_each(v.providers) where value = ? and json_array_length(v.providers) = 1
+func (d *Database) AddressCount(provider string) (count int, err error) {
+	err = d.db.Get(
+		&count,
+		`SELECT
+		count(*)
+		FROM (
+			SELECT DISTINCT
+			address
+			FROM
+			view_appearances_with_providers
+			WHERE EXISTS (SELECT 1 FROM json_each(providers) WHERE value = ?)
 		)`,
 		provider,
 	)
@@ -315,38 +222,29 @@ type GroupedReasons struct {
 func (d *Database) UniqueAppearancesGroupedReasons(provider string) (groupedReasons []GroupedReasons, err error) {
 	err = d.db.Select(
 		&groupedReasons,
-		`select
+		`WITH apps AS(
+			SELECT * FROM view_appearances_with_providers WHERE EXISTS (SELECT 1 FROM json_each(providers) WHERE value = ? AND json_array_length(providers) = 1)
+		) SELECT
 		reason,
 		count(*) as count
-		from (
-			select
-			id,
-			address,
-			block_number,
-			transaction_index,
-			r.reason
-			from view_appearances_with_providers v
-			join appearance_reasons r on r.appearance_id = v.id
-			where exists (
-				select 1 from json_each(v.providers) where value = ? and json_array_length(v.providers) = 1
-			)
-		) group by reason order by count`,
+		FROM apps
+		JOIN appearance_reasons r ON r.appearance_id = apps.id
+		GROUP BY reason ORDER BY count`,
 		provider,
 	)
 
 	return
 }
 
-func (d *Database) AppearanceBalanceChangeCountOnlyByProvider(provider string) (count int, err error) {
+func (d *Database) BalanceChangeCount(provider string) (count int, err error) {
 	err = d.db.Get(
 		&count,
-		`select
+		`WITH apps AS(
+			SELECT * FROM view_appearances_with_providers WHERE EXISTS (SELECT 1 FROM json_each(providers) WHERE value = ? AND json_array_length(providers) = 1)
+		) SELECT
 		count(*) as count
-		from view_appearances_with_providers v
-		join appearance_balance_changes c on c.appearance_id = v.id
-		where exists (
-			select 1 from json_each(v.providers) where value = ? and json_array_length(v.providers) = 1
-		)`,
+		FROM apps
+		JOIN appearance_balance_changes c ON c.appearance_id = apps.id`,
 		provider,
 	)
 

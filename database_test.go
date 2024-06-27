@@ -195,35 +195,27 @@ func TestDatabase_SelectByProviders(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	esOnly, err := d.AppearancesByProviders([]string{"etherscan"})
+	esOnly, err := d.UniqueAppearanceCount("etherscan")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if l := len(esOnly); l != 1 {
-		t.Fatal("wrong length", l)
+	if esOnly != 1 {
+		t.Fatal("wrong count", esOnly)
 	}
 
-	alchemyOnly, err := d.AppearancesByProviders([]string{"alchemy"})
+	alchemyOnly, err := d.UniqueAppearanceCount("alchemy")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if l := len(alchemyOnly); l != 0 {
-		t.Fatal("wrong length", l)
+	if alchemyOnly != 0 {
+		t.Fatal("wrong count", alchemyOnly)
 	}
 
-	etherscanAlchemy, err := d.AppearancesByProviders([]string{"etherscan", "alchemy"})
+	keyOnly, err := d.UniqueAppearanceCount("key")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if l := len(etherscanAlchemy); l != 0 {
-		t.Fatal("wrong length", l)
-	}
-
-	keyOnly, err := d.AppearancesByProviders([]string{"key"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if l := len(keyOnly); l != 0 {
-		t.Fatal("wrong length", l)
+	if keyOnly != 0 {
+		t.Fatal("wrong count", keyOnly)
 	}
 }
