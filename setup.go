@@ -289,6 +289,13 @@ func (c *Comparison) checkAddress(provider string, address string) (appearances 
 		appearances, _, err = opts.SlurpAppearances()
 	}
 
+	// Always return false for addresses having 0 appearances, so they are stored as incompatible
+	// and not just disappear
+	if len(appearances) == 0 {
+		ok = false
+		return
+	}
+
 	ok = len(appearances) >= c.minAppearances && len(appearances) <= c.maxAppearances
 	return
 }
