@@ -155,7 +155,7 @@ We've written a number of comparisons with other data sources. They are listed h
 | Name                                                                                                                                                             | Date       |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | [TrueBlocks / Alchemy, Covalent and Etherscan Comparison](./results/with-3-providers-2024-06-26.md)                                                                                      | 2024-06-26 |
-| [TrueBlocks / EtherScan Comparison](./results/with-etherscan-2023-12-13.md)                                                                                      | 2023-12-13 |
+| [TrueBlocks / Etherscan Comparison](./results/with-etherscan-2023-12-13.md)                                                                                      | 2023-12-13 |
 | [TrueBlocks / Covalent Comparison](https://medium.com/coinmonks/trueblocks-covalent-comparison-7b42f3d1e6f7)                                                     | 2022-09-20 |
 | [The Difference Between TrueBlocks and The Graph](https://trueblocks.io/papers/2021/the-difference-between-trueBlocks-and-rotki-and-trueBlocks-and-thegraph.pdf) | 2021-04-02 |
 | [How Accurate is Etherscan](https://tjayrush.medium.com/how-accurate-is-etherscan-83dab12eeedd)                                                                  | 2020-06-11 |
