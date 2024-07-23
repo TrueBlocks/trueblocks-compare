@@ -63,11 +63,14 @@ Of the remaining **691** addresses:
 - for **15** addresses, Etherscan found 364 different appearances than TrueBlocks, but in all 15 cases, the difference was due to a bug in Etherscan. ([See below](#bug-in-etherscan-related-to-uncles).)
 
 We recognize that the huge number of additional appearances found by TrueBlocks seems like a mistake. But one needs to realize that TrueBlocks looks for more than just a small set of known behaviours (such as `Transfers`). TrueBlocks looks everywhere. In particulate, TrueBlocks looks in:
-
 - the transaction's `input` data
 - the `topics` of the transaction's logs
 - the `data` field of the transaction's logs
 - the `data` and `output` field of the transaction's traces
+
+Here's the breakout of where those **456,269** appearances were found:
+
+<img alt="Chart showing where TrueBlocks found appearances" width="60%" src="../assets/with_3_providers_chart1.png">
 
 ### Bug in Etherscan related to Uncles
 
