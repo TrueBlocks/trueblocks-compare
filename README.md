@@ -1,42 +1,62 @@
-# TrueBlocks Comparison with EtherScan
+# TrueBlocks Comparison with other indexers
 
-A repository used to compare EtherScan against TrueBlocks.
+A repository used to compare other indexers against TrueBlocks.
 The methodology and results are described in [Comparison](./results/with-etherscan-2023-12-13.md)
 
-- [TrueBlocks Comparison with EtherScan](#trueblocks-comparison-with-etherscan)
-  - [Folder Structure](#folder-structure)
-  - [Code Structure](#code-structure)
-  - [The Addresses.txt File](#the-addressestxt-file)
-  - [The Code](#the-code)
-    - [Downloading the data](#downloading-the-data)
-    - [Comparing the data](#comparing-the-data)
-    - [Why does TrueBlocks find more appearances?](#why-does-trueblocks-find-more-appearances)
-  - [List of Comparisons](#list-of-comparisons)
+- [Running](#running)
+- [Folder Structure](#folder-structure)
+- [Code Structure](#code-structure)
+- [The Addresses.txt File](#the-addressestxt-file)
+- [The Code](#the-code)
+  - [Downloading the data](#downloading-the-data)
+  - [Comparing the data](#comparing-the-data)
+  - [Why does TrueBlocks find more appearances?](#why-does-trueblocks-find-more-appearances)
+- [List of Comparisons](#list-of-comparisons)
+
+## Running
+Prepare `addresses.txt` file with addresses that should be used for comparison (`data.tar.gz` file has a list of 1,000 addresses).
+Then run:
+
+```shell
+go run . addresses.txt
+```
+
+For 1,000 addresses it takes couple of days to finish. Please see below for the explanation why it takes so much time (for impatient: the cause is other providers' rate limiting, which doesn't happen with local software like TrueBlocks).
+
+After the comparison is done the results are printed to the screen and raw data is preserved in the SQLite database (date and time is used as the file name).
+If you'd like to only print the results again, without downloading the data, you can call:
+```shell
+go run . --reuse path/to/database_file.sqlite
+```
+
+By the default the results are present in human-readable, textual form. You can change to CSV (which can be pasted to a spreadsheet app for example) using `format` flag:
+```shell
+go run . --reuse path/to/database_file.sqlite --format csv
+```
 
 ## Folder Structure
 
 This is what your directory structure should look like if you wish to reproduce the results:
 
 ```[shell]
-.                  # The root of the repo. Where the code is stored.
-├── bin            # The location of the built file.
-└── store          # The location of all the data.
-    ├── etherscan  # A folder containing all data downloaded from EtherScan.
-    ├── list       # A folder containing all the data produced by chifra list.
-    ├── both       # A folder containing appearances found in both data sources.
-    ├── es_only    # A folder containing appearances found only in EtherScan.
-    └── tb_only    # A folder containing appearances found only in TrueBlocks.
+.                      # The root of the repo. Where the code is stored.
+├── bin                # The location of the built file.
+└── store              # The location of all the data.
+    └── addresses.txt  # The list of addresses used in the comparison
 ```
 
 ## Code Structure
 
-The code is written in GoLang and is located in the root of the repo. It is split into 3 files:
+The code is written in GoLang and is located in the root of the repo. It is split into 4 files:
 
 ```[shell]
 ├── main.go        # The main file. It is used to run the code
-├── compare.go     # The file containing the code to compare the data
-└── download.go    # The file containing the code to download the data
+├── database.go    # The file containing the code to initialize and query SQLite database
+├── setup.go       # The file containing preparation code
+└── result.go      # The file containing the code to present the results
 ```
+
+Results are obtained by querying the database. The queries can be found in `database.go` file.
 
 ## The Addresses.txt File
 
@@ -44,85 +64,88 @@ Also at the root of the repo is a file called `addresses.txt.`. This is the list
 
 ## The Code
 
-The code to run the comparison is located in `main.go`. Read this very simple file. It calls into two processes located in `download.go` (optional) and `compare.go.`
+The code to run the comparison is located in `main.go`. Read this very simple file.
 
 ### Downloading the data
 
-The `download.go` file contains the code used to download the data from each source. It reads the `addresses.txt` file and processes each line using `chifra` and `os.System`. The code first creates a list of all appearances using `chifra list`. It stores this list into the `store/list` folder. The data has the form:
+The `setup.go` file contains the code used to download the data from each source. It reads the `addresses.txt` file and processes each line using TrueBlocks SDK. The code first filters out the addresses that have too few or too many appearances. If `chifra` is installed on the machine, `chifra list` is used for filtering. If TrueBlocks Key Endpoint is configured in `trueBlocks.toml` file (path to the file can be obtained by calling `chifra config --paths`), then TrueBlocks Key is used instead. If none of the mentioned can be used, an error is returned.
 
-```[shell]
-blockNumber,transactionIndex
+If there's not too many appearances (Etherscan doesn't download more than 10,000 records, so we ignore addresses with more than 10,000 records), we procede to download from the provider and store `address, block number, transaction index, provider name` in `appearances` SQL table.
+
+If there are too many or too few appearances, the address is saved in `incompatible_addresses` together with the number of appearances.
+
+Currently supported providers are Alchemy, Covalent Etherscan and TrueBlocks Key. However, the code will only use providers for which API keys (or Endpoint in case of TrueBlocks Key) are defined in `trueBlocks.toml`.
+
+The code used to download the data looks like this:
+
+```go
+opts := sdk.SlurpOptions{
+  Source: PROVIDER_ID,
+  Addrs:  []string{address},
+  Parts:  ALL_SUPPORTED,
+}
+appearances, _, err := opts.SlurpAppearances()
 ```
 
-Next, we count how many records are found by `chifra list.` If there's not too many (EtherScan doesn't download more than 10,000 records, so we ignore addresses with more than 10,000 records), we procede to download from EtherScan. It stores the EtherScan data into the `store/etherscan` folder.
+Note that the `SlurpOptions` command has a `Parts` field. It is set to every value supported by the given provider. This means it hits all eight of Etherscan's API endpoints: _normal transactions_, _external transactions_, _withdrawals_, etc., all five Alchemy's API and so on. This is the only way to get all the data from most providers. This, when combined with providers rate limiting, means that this process takes a long time to run. `chifra list` is WAY faster.
 
-The command it uses for `chifra list` is:
-
-```[shell]
-chifra list --no_header --last_block 18517000 --fmt csv <address> | cut -d, -f 1,2 >store/list/<address>.csv
-```
-
-If there's less than 10,000 records, it downloads from EtherScan using the command:
-
-```[shell]
-chifra slurp --types all 0-18517000 --fmt csv <address> | cut -d, -f 1,2 >store/etherscan/<address>.csv
-```
-
-Note that the `chifra slurp` command has a `--types` option which takes a value of `all`. This means it hits all eight of EtherScan's API's data types: `ext | int | token | nfts | 1155 | miner | uncles | withdrawals`. This is the only way to get all the data from EtherScan. This, when combined with EtherScan's rate limiting, means that this process takes a long time to run. `chifra list` is WAY faster.
-
-At the end of this process, we have one file in each of the two folders (`store/list` and `store/etherscan`) for each address in the `addresses.txt` file with less than 10,000 appearances. The with the name of the file is `<address>.csv`. This allows us to compare the results easily.
-
-The process will only run the `download` process if you provide the `--download` flag. Otherwise, it only compares existing data.
-
-Note that in both cases, we use the `cut` command to extract the first two columns of the data. This is the `blockNumber` and `transactionIndex`. Also, notice that we stop the search at block `18517000` in both cases to ensure a fair comparison.
+The download code runs unless you provide `--reuse path/to/existing/database_file.sqlite` flag.
 
 ### Comparing the data
 
-To compare the files, we read in the files from both folders (`./etherscan` and `./list`) for each address. As we read the files, we enter each appearance into a map mapping the appearance to a `Diff` structure which simply a pair of two `booleans`. Like this:
+To ease comparing the data, a view grouping appearances and providers is present in the database:
 
-```[go]
-type Diff struct {
-    app        Appearance
-    etherscan  bool
-    trueblocks bool
-}
-
-type DiffMap map[Appearance]Diff
+```sql
+CREATE VIEW IF NOT EXISTS view_appearances_with_providers AS SELECT
+  id,
+  address,
+  block_number,
+  transaction_index,
+  JSON_GROUP_ARRAY ( provider ) as providers
+FROM (SELECT DISTINCT * FROM appearances)
+GROUP BY address, block_number, transaction_index;
 ```
 
-An `Appearance` is simply a pair of `blockNumber` and `transactionIndex`:
+We need to use `SELECT DISTINCT * FROM appearances`, because Etherscan's API endpoints return duplicates.
+An example record stored in the view would be:
 
-```[go]
-type Appearance struct {
-    blockNumber      uint64
-    transactionIndex uint64
-}
 ```
+132|0x007b003c4d0145b512286494d5ae123aeef29d9e|4982726|173|["key","etherscan","covalent","alchemy"]
+```
+Which can be read as: _an appearance with ID 132 of address 0x007b003c4d0145b512286494d5ae123aeef29d9e that has happened in block number 4982726, transaction index 173 was reported by all four providers_
 
-If an appearance is found in the `etherscan` file, we light up the `etherscan` boolean. If it's found in the `list` file, we light up the `trueblocks` boolean. At the end of the process, we have a map containing all the appearances in both files.
+To compare the data, different SQL queries are used. They can be found in`database.go` file.
 
-There are three cases:
+Comparison has basically two possible outcomes:
 
-1. Both booleans are lit -- we write these records to the `both` folder in a file called `<address>.csv`.
-2. Only the `etherscan` boolean is lit -- we write these records to the `es_only` folder.
-3. Only the `trueblocks` boolean is lit -- we write these records to the `tb_only` folder.
-
-And we're done.
+1. An appearance is reported by more than 1 provider
+2. An appearance is reported only by 1 provider
 
 ### Why does TrueBlocks find more appearances?
 
-Hopefully TrueBlocks will find more appearances than EtherScan. In order to check where these additional appearances come from, we can use a very handy tool as all the information we need is already in the existing data.
+Hopefully TrueBlocks will find more appearances than other sources. In order to check where these additional appearances come from, for each appearance we call TrueBlocks SDK `TransactionsUniq()` method. It returns `reason` - a string explaining where the appearance has been found.
 
-Each file in `store/tb_only` contains the appearances that TrueBlocks found that EtherScan did not. We can use the `chifra transactions --uniq` command to see why those appearances were found by TrueBlocks but not EtherScan.
+We store reasons together with provider name and appearance ID in `appearance_reasons` table:
+```sql
+SELECT * FROM appearance_reasons LIMIT 1;
+-- Returns 1|key|log_923_topic_3|
+```
 
-We basically used this greatly simplified alogrithm to find the differences:
+For non-TrueBlocks sources the reason is the API endpoint used:
+```sql
+SELECT * FROM appearance_reasons WHERE provider = 'etherscan' LIMIT 1;
+-- Returns 133|etherscan|ext|
+```
 
-```[go]
-for each address where TrueBlocks found more appearances
-   for each appearance
-      list all addresses that also appeared in that transaction (i.e., neighbors)
-      check to see why the address in question appeared in that transaction
-summarize the results
+We also check if the transaction involved a balance change. We detect it by calling TrueBlocks SDK again. Please refer to `getChifraBalanceChange` function for the details.
+Information about balance change is stored in `appearance_balance_changes` table defined as follows:
+
+```sql
+CREATE TABLE appearance_balance_changes (
+	appearance_id INTEGER NOT NULL,
+	balance_change BOOLEAN,
+	foreign key(appearance_id) references appearances(id)
+);
 ```
 
 ## List of Comparisons
@@ -131,7 +154,8 @@ We've written a number of comparisons with other data sources. They are listed h
 
 | Name                                                                                                                                                             | Date       |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| [TrueBlocks / EtherScan Comparison](./results/with-etherscan-2023-12-13.md)                                                                                      | 2023-12-13 |
+| [TrueBlocks / Alchemy, Covalent and Etherscan Comparison](./results/with-3-providers-2024-06-26.md)                                                                                      | 2024-06-26 |
+| [TrueBlocks / Etherscan Comparison](./results/with-etherscan-2023-12-13.md)                                                                                      | 2023-12-13 |
 | [TrueBlocks / Covalent Comparison](https://medium.com/coinmonks/trueblocks-covalent-comparison-7b42f3d1e6f7)                                                     | 2022-09-20 |
 | [The Difference Between TrueBlocks and The Graph](https://trueblocks.io/papers/2021/the-difference-between-trueBlocks-and-rotki-and-trueBlocks-and-thegraph.pdf) | 2021-04-02 |
 | [How Accurate is Etherscan](https://tjayrush.medium.com/how-accurate-is-etherscan-83dab12eeedd)                                                                  | 2020-06-11 |
