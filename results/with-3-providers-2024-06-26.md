@@ -1,72 +1,89 @@
 # TrueBlocks Comparison with Alchemy, Covalent and Etherscan
 
-- [The Problem](#the-problem)
-- [What We Compared](#what-we-compared)
-- [The Results](#the-results)
-  - [Bug in Etherscan related to Uncles](#bug-in-etherscan-related-to-uncles)
-- [What is an Appearance?](#what-is-an-appearance)
-- [Why Does This Matter?](#why-does-this-matter)
-- [Replicating The Test](#replicating-the-test)
+- [TrueBlocks Comparison with Alchemy, Covalent and Etherscan](#trueblocks-comparison-with-alchemy-covalent-and-etherscan)
+  - [The Problem](#the-problem)
+  - [Introduction](#introduction)
+  - [What We Compared](#what-we-compared)
+  - [The Results](#the-results)
+    - [Row descriptions](#row-descriptions)
+    - [Summary](#summary)
+    - [Bug in Etherscan related to Uncles](#bug-in-etherscan-related-to-uncles)
+  - [What is an Appearance?](#what-is-an-appearance)
+  - [Why Does This Matter?](#why-does-this-matter)
+  - [Replicating The Test](#replicating-the-test)
 
 ## The Problem
 
-TrueBlocks' command line tool `chifra scrape` produces the [Unchained Index](https://trueblocks.io/papers/2023/specification-for-the-unchained-index-v2.0.0-release.pdf). The best _index of appearances_ that we know of. ([See below if you don't know what an appearance is](#what-is-an-appearance).) The Unchained Index includes a record each time an address appears anywhere on the chain. No other indexer, to our knowledge, is as complete.
+It's impossible to do perfect, automated, off-chain accounting using blockchains.
 
-In this article, we compare the TrueBlocks' indexer with web 2.0 providers: Alchemy, Covalent and Etherscan. Spoiler alert: TrueBlocks wins.
+This is absurd given that blockchains reconcile hundreds of millions of accounts to 18-decimal place accuracy every so many seconds. Perfect. 18-decimal-place accurate.
+
+## Introduction
+
+TrueBlocks' [Unchained Index](https://trueblocks.io/papers/2023/specification-for-the-unchained-index-v2.0.0-release.pdf) is the best _index of appearances_ that we know of. ([See below for what an appearance is](#what-is-an-appearance).) The Unchained Index makes note of any time an address appears anywhere on the chain. No other indexer is as complete. In this article, we show the above claim to be true.
+
+We compare the Unchained Index with three major Web 2.0 blockchain data providers: **Alchemy**, **Covalent** and **Etherscan**.
+
+Spoiler alert: TrueBlocks far outperforms all of them.
 
 ## What We Compared
 
-We queried TrueBlocks, Alchemy, Covalent and Etherscan for "appearances" for about 1,000 randomly-selected addresses. The results are presented below.
+We queried 1,000 randomly-selected addresses against TrueBlocks, Alchemy, Covalent, and Etherscan for account histories. The results (which we admit are surprising) are presented below.
 
-There is an important distinction to be made between TrueBlocks and the above mentioned providers. TrueBlocks is local-first indexer running against a local Ethereum archive node. This means TrueBlocks does not rate limit, nor does it cost anything to operate, nor does it paginate. Alchemy, Covalent and Etherscan, on the other hand, are web 2.0 APIs &mdash; they have no choice but to rate limit, charge for access, and paginate.
+We were very careful to use each providers endpoints to ensure a fair test. We were also careful to handle errors properly. In our code, had there been an error response from a provider, the testing tool would exit (and we would have to re-run the test).
 
-These differences, we think, are part of the reason for the surprising results presented below. Given its lightweight nature, TrueBlocks can dig deeper.
-
-We made sure that every provider had been queried for all addresses. Had there been a single error response, the testing tool would exit without finishing the test.
+Becuase TrueBlocks is local-first and not shared with others, there is no rate limiting. We think this is one of the main reasons for the results. TrueBlocks is MUCH faster -- we can dig deeper.
 
 ## The Results
 
-We checked 1,000 randomly-selected addresses against TrueBlocks and web 2.0 providers mentioned earlier. The list of addresses is available in `addresses.txt` file in this repo. README explains how to rerun the test. The results are saved to SQLite database to allow additional queries.
+As noted, we test 1,000 randomly-selected addresses against four different providers. The list of addresses is available in `addresses.txt` file in this repo. The README explains how to run the test for yourself. The results are saved to SQLite database to allow subsequent queries.
 
-Of those 1,000 addresses, 102 had no appearances at all and 207 were discarded because they had more than 5,000 appearances. Etherscan's free service limits its return to less than 10,000 records. We wanted to stay as far away from that limit as possible. (Plus, waiting for more than 5,000 records from Etherscan was way too slow. TrueBlocks can easily return 100,000s of records for any address almost instaneously.)
+Of the 1,000 addresses, we found that at least 102 had never transacted. These addresses were discarded. Additionally, we found that 207 addresses had transacted 5,000 or more times. We discarded these as well. We did this primarily because of Etherscan's free-teir limit on the number of they will return. To make things fair, we wanted to stay as far away from that limit as possible.
 
-|                                                         |TrueBlocks|Covalent|Etherscan|Alchemy|
-|-------------------------------------------------------- |----------|--------|---------|-------|
-|Addresses Queried                                        |1,000     |1,000   |1,000    |1,000  |
-|Addresses with Too Many Appearances 	                    |207       |207     |207      |207    |
-|Addresses with No Appearances                            |102       |121     |106      |344    |
-|Addresses with Appearances                               |691       |672     |687      |449    |
-|Appearances Reported                                     |456,269   |311,929 |289,312  |80,851 |
-|Addresses for which only the provider found a transaction|506       |0       |14       |0      |
-|Unique Appearances Found                                 |120,744   |0       |364*     |0      |
-|Balance Changing Unique Appearances                      |1,194     |0       |0        |0      |
-\* &mdash; Please see [Bug in Etherscan related to Uncles](#bug-in-etherscan-related-to-uncles) for the explanaition why Etherscan has found 364 unique appearances.
+This left use with **691** addresses to test. The results are summarized below.
 
-### Row description
-- *Addresses Queried* is the initial number of addresses before filtering any addresses out
-- *Addresses with Too Many Appearances* is the number of addresses exceeding allowed appearance total (5,000 in this case, see the paragraph above)
-- *Addresses with No Appearances* is the number of addresses for which the given provider returned no appearances
-- *Addresses with Appearances* is the total number of addresses not exceeding allowed appearance total that a provider returned data for
-- *Appearances Reported* is the total number of appearances returned by a provider
-- *Addresses for which only the provider found a transaction* is the number of addresses for which _only_ the given provider returned appearances
-- *Unique Appearances Found* is the number of appearances reported _only_ by the given provider
-- *Balance Changing Appearances* shows how many Unique Appearances involved balance change (ETH only)
+|                                              | TrueBlocks | Covalent | Etherscan | Alchemy |
+| -------------------------------------------- | :--------- | :------- | :-------- | :------ |
+| Initial addresses included                   | 1,000      | 1,000    | 1,000     | 1,000   |
+| Eliminated due to 5,000 or more txs          | 207        | 207      | 207       | 207     |
+| Eliminated due to zero txs                   | 102        | 121      | 106       | 344     |
+| Addresses queried                            | 691        | 672      | 687       | 449     |
+| Appearances found                            | 456,269    | 311,929  | 289,312   | 80,851  |
+| Addresses with txs only found by...          | 506        | 0        | 14        | 0       |
+| Unique appearances not found by others       | 120,744    | 0        | 364*      | 0       |
+| Unique appearances where ETH balance changed | 1,194      | 0        | 0         | 0       |
+
+\* &mdash; See [Bug in Etherscan](#bug-in-etherscan-related-to-uncles) for an explanation of this number.
+
+### Row descriptions
+
+- **Inital addresses included** is the initial number of addresses before filtering any addresses out
+- **Eliminated due to > 5,000** is the number of addresses exceeding allowed appearance total (5,000 in this case, see the paragraph above)
+- **Eliminated due to zero** is the number of addresses for which the given provider returned no appearances
+- **Addresses queried** is the total number of addresses not exceeding allowed appearance total that a provider returned data for
+- **Appearances found** is the total number of appearances returned by a provider
+- **Addresses with txs only found by...** is the number of addresses for which _only_ the given provider returned appearances
+- **Unique appearances not found by others** is the number of appearances reported _only_ by the given provider
+- **Unique appearances where balance changed** shows how many Unique Appearances involved balance change (ETH only)
 
 ### Summary
 
-Of the remaining **691** addresses:
+Of the **691** addresses that were actually queried:
 
 - **506** (**73%**) addresses had appearances found only by TrueBlocks. That's **120,744** more appearances!
 - **1,194** appearances found by TrueBlocks changed address' ETH balance
 - **NO** appearances were found by other providers that were not also found by TrueBlocks
 - **Only** TrueBlocks found appearances for all **691** addresses
-- for **15** addresses, Etherscan found 364 different appearances than TrueBlocks, but in all 15 cases, the difference was due to a bug in Etherscan. ([See below](#bug-in-etherscan-related-to-uncles).)
+- for **14** addresses, Etherscan found 364 different appearances than TrueBlocks, but in all 14 cases, the difference was due to a bug in Etherscan. ([See below](#bug-in-etherscan-related-to-uncles).)
 
-We recognize that the huge number of additional appearances found by TrueBlocks seems like a mistake. But one needs to realize that TrueBlocks looks for more than just a small set of known behaviours (such as `Transfers`). TrueBlocks looks everywhere. In particulate, TrueBlocks looks in:
-- the transaction's `input` data
-- the `topics` of the transaction's logs
-- the `data` field of the transaction's logs
-- the `data` and `output` field of the transaction's traces
+We recognize that these results are surprising and may seem like a mistake. But one should realize that TrueBlocks looks for more than just a small set of known behaviours (such as `Transfers`). TrueBlocks looks everywhere. In particulate, TrueBlocks looks in:
+
+- the obvious places (`to`, `from`, `log generator`, etc.)
+- every transaction's `input` data
+- every log's `topics` and `data`
+- every trace's `input` and `output` fields
+- `mining` and `uncle` rewards
+- `staking` withdrawals
 
 Here's the breakout of where those **456,269** appearances were found:
 
@@ -74,7 +91,7 @@ Here's the breakout of where those **456,269** appearances were found:
 
 ### Bug in Etherscan related to Uncles
 
-In the **687** addresses searched by Etherscan, for **14** addresses it found appearances that TrueBlocks did not. In all cases, however, the difference was due to a bug in Etherscan related to uncles. The bug is that Etherscan returns the block number when the uncle was "located". TrueBlocks returns the block number in which the uncle reward was credited to the address's account. We know this because we ran the following analysis on all **364** appearances of this issue.
+For **14** of the **687** addresses searched by Etherscan, appearances were returned that TrueBlocks did not find. In every case, however, the difference was due to a bug in Etherscan related to uncles. The bug is that Etherscan returns the block number when the uncle was "produced". TrueBlocks returns the block number in which the uncle reward was credited to the miners's account. We know this because we ran the following analysis on all **364** appearances of this issue.
 
 First, we extracted just the block number from the appearances found by Etherscan. We then calculated 1 block prior to that block number (P) and seven blocks after that block number (A). We then ran:
 
@@ -99,16 +116,16 @@ chifra state --parts balance 484-492 0x48040276e9c17ddbe5c8d2976245dcd0235efa43
 
 returns
 
-|blockNumber|address|balance|
-|-----------|-------|-------|
-|484|0x48040276e9c17ddbe5c8d2976245dcd0235efa43|0|
-|485|0x48040276e9c17ddbe5c8d2976245dcd0235efa43|0|
-|486|0x48040276e9c17ddbe5c8d2976245dcd0235efa43|0|
-|487|0x48040276e9c17ddbe5c8d2976245dcd0235efa43|3750000000000000000|
-|488|0x48040276e9c17ddbe5c8d2976245dcd0235efa43|3750000000000000000|
-|489|0x48040276e9c17ddbe5c8d2976245dcd0235efa43|3750000000000000000|
-|490|0x48040276e9c17ddbe5c8d2976245dcd0235efa43|3750000000000000000|
-|491|0x48040276e9c17ddbe5c8d2976245dcd0235efa43|3750000000000000000|
+| blockNumber | address                                    | balance             |
+| ----------- | ------------------------------------------ | ------------------- |
+| 484         | 0x48040276e9c17ddbe5c8d2976245dcd0235efa43 | 0                   |
+| 485         | 0x48040276e9c17ddbe5c8d2976245dcd0235efa43 | 0                   |
+| 486         | 0x48040276e9c17ddbe5c8d2976245dcd0235efa43 | 0                   |
+| 487         | 0x48040276e9c17ddbe5c8d2976245dcd0235efa43 | 3750000000000000000 |
+| 488         | 0x48040276e9c17ddbe5c8d2976245dcd0235efa43 | 3750000000000000000 |
+| 489         | 0x48040276e9c17ddbe5c8d2976245dcd0235efa43 | 3750000000000000000 |
+| 490         | 0x48040276e9c17ddbe5c8d2976245dcd0235efa43 | 3750000000000000000 |
+| 491         | 0x48040276e9c17ddbe5c8d2976245dcd0235efa43 | 3750000000000000000 |
 
 As you can see, Etherscan reports the uncle block at block 485. However, the uncle reward was not credited to the miner's account until block 487. TrueBlocks reports the uncle at block 487.
 
@@ -122,13 +139,13 @@ Total number of place where Etherscan legitmately found more appearances than Tr
 
 For example, the first three appearances for `trueblocks.eth` are:
 
-|blockNumber|transactionIndex|
-|-----------|----------------|
-|8854723|61|
-|8856290|62|
-|8856316|91|
+| blockNumber | transactionIndex |
+| ----------- | ---------------- |
+| 8854723     | 61               |
+| 8856290     | 62               |
+| 8856316     | 91               |
 
-Easy enough. Just look at `from`, `to`, `log topic 0` and a few other places. That's what most indexers do. But as we've demonstrated above, there's way more to the story. Please see a very detailed discussion in the [Specification of the Unchained Index](https://trueblocks.io/papers/2023/specification-for-the-unchained-index-v2.0.0-release.pdf).
+Easy enough. Just look at `from`, `to`, `log topics` and a few other places. That's what most indexers do. But as we've demonstrated above, there's way more to the story. Please see a very detailed discussion in the [Specification of the Unchained Index](https://trueblocks.io/papers/2023/specification-for-the-unchained-index-v2.0.0-release.pdf).
 
 ## Why Does This Matter?
 
