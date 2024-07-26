@@ -1,17 +1,18 @@
 # TrueBlocks Comparison with other indexers
 
 A repository used to compare other indexers against TrueBlocks.
-The methodology and results are described in [Comparison](./results/with-etherscan-2023-12-13.md)
+The methodology and results are described in [Comparison](./results/with-3-providers-2024-06-26.md)
 
-- [Running](#running)
-- [Folder Structure](#folder-structure)
-- [Code Structure](#code-structure)
-- [The Addresses.txt File](#the-addressestxt-file)
-- [The Code](#the-code)
-  - [Downloading the data](#downloading-the-data)
-  - [Comparing the data](#comparing-the-data)
-  - [Why does TrueBlocks find more appearances?](#why-does-trueblocks-find-more-appearances)
-- [List of Comparisons](#list-of-comparisons)
+- [TrueBlocks Comparison with other indexers](#trueblocks-comparison-with-other-indexers)
+  - [Running](#running)
+  - [Folder Structure](#folder-structure)
+  - [Code Structure](#code-structure)
+  - [The Addresses.txt File](#the-addressestxt-file)
+  - [The Code](#the-code)
+    - [Downloading the data](#downloading-the-data)
+    - [Comparing the data](#comparing-the-data)
+    - [Why does TrueBlocks find more appearances?](#why-does-trueblocks-find-more-appearances)
+  - [List of Comparisons](#list-of-comparisons)
 
 ## Running
 Prepare `addresses.txt` file with addresses that should be used for comparison (`data.tar.gz` file has a list of 1,000 addresses).
@@ -154,7 +155,7 @@ We've written a number of comparisons with other data sources. They are listed h
 
 | Name                                                                                                                                                             | Date       |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| [TrueBlocks / Alchemy, Covalent and Etherscan Comparison](./results/with-3-providers-2024-06-26.md)                                                                                      | 2024-06-26 |
+| [TrueBlocks / Alchemy, Covalent and Etherscan Comparison](./results/with-3-providers-2024-06-26.md)                                                              | 2024-06-26 |
 | [TrueBlocks / Etherscan Comparison](./results/with-etherscan-2023-12-13.md)                                                                                      | 2023-12-13 |
 | [TrueBlocks / Covalent Comparison](https://medium.com/coinmonks/trueblocks-covalent-comparison-7b42f3d1e6f7)                                                     | 2022-09-20 |
 | [The Difference Between TrueBlocks and The Graph](https://trueblocks.io/papers/2021/the-difference-between-trueBlocks-and-rotki-and-trueBlocks-and-thegraph.pdf) | 2021-04-02 |
